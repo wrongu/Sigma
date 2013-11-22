@@ -1,7 +1,7 @@
 #pragma once
 #include "GL/glew.h"
 #include <string>
-#include "SOIL/SOIL.h"
+#include "SOIL.h"
 
 namespace Sigma {
 	namespace resource {

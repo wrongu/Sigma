@@ -39,6 +39,10 @@ source_group("Header Files\\controllers" FILES ${Sigma_SRC_CONTROLLERS_H})
 file(GLOB Sigma_SRC_CONTROLLERS_CPP "src/controllers/*.cpp")
 source_group("Source Files\\controllers" FILES ${Sigma_SRC_CONTROLLERS_CPP})
 
+# Put all Resource files into a filter
+file(GLOB Sigma_SRC_RESOURCES_H "include/resources/*.h")
+source_group("Header Files\\resources" FILES ${Sigma_SRC_RESOURCES_H})
+
 # Outpit the compiler ID.
 message("Compiler ID: " ${CMAKE_CXX_COMPILER_ID})
 
@@ -79,7 +83,7 @@ if(WIN32 AND NOT MINGW) # Windows
 	include_directories("${CMAKE_SOURCE_DIR}/include/libraries")
 	set(CMAKE_LIBRARY_PATH ${CMAKE_SOURCE_DIR}/lib/x86)
 	link_directories("${CMAKE_SOURCE_DIR}/lib/x86")
-	
+
 	set(GLEW_LIBRARY glew32s glew32)
 	set(BULLET_LINEARMATH_LIBRARIES LinearMath)
 	set(BULLET_COLLISION_LIBRARIES BulletCollision)
@@ -91,7 +95,7 @@ endif(WIN32 AND NOT MINGW)
 
 if(MINGW OR UNIX OR ${CMAKE_SYSTEM_NAME} MATCHES "Linux") # *nix compliant
 	find_package(SDL2 REQUIRED)
-	find_package(SDL2TTF REQUIRED)	
+	find_package(SDL2TTF REQUIRED)
 
 	find_package(GLEW REQUIRED)
 	if(NOT GLEW_FOUND)
@@ -102,15 +106,20 @@ if(MINGW OR UNIX OR ${CMAKE_SYSTEM_NAME} MATCHES "Linux") # *nix compliant
 	if(NOT (BULLET_DYNAMICS_FOUND AND BULLET_COLLISION_FOUND AND BULLET_LINEARMATH_FOUND))
 		message(FATAL_ERROR "Bullet Physics was not found. Aborting!")
 	endif(NOT (BULLET_DYNAMICS_FOUND AND BULLET_COLLISION_FOUND AND BULLET_LINEARMATH_FOUND))
-	
+
 	find_package(SOIL REQUIRED)
 	if(NOT ${SOIL_FOUND})
 		message(FATAL_ERROR "SOIL wasn't found!")
 		message(ERROR "Please install SOIL, or if you have it installed, make sure that modules/FindSOIL.cmake looks for it")
 	endif(NOT ${SOIL_FOUND})
 
+	find_package(Awesomium REQUIRED)
+	if(NOT ${AWESOMIUM_FOUND})
+		message(FATAL_ERROR "Awesomium wasn't found!")
+	endif(NOT ${AWESOMIUM_FOUND})
+
 	# Link the libraries
-	set(Sigma_LIB ${Sigma_LIB} ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY} ${BULLET_LINEARMATH_LIBRARY} ${BULLET_COLLISION_LIBRARY} ${BULLET_DYNAMICS_LIBRARY})
+	set(Sigma_LIB ${Sigma_LIB} ${SDL2_LIBRARY} ${SDL2TTF_LIBRARY} ${BULLET_LINEARMATH_LIBRARY} ${BULLET_COLLISION_LIBRARY} ${BULLET_DYNAMICS_LIBRARY} ${AWESOMIUM_LIBRARY})
 
 	set(IOPSYS "OS_SDL" CACHE STRING "Select the Op Sys you want to use")
 endif(MINGW OR UNIX OR ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -127,7 +136,7 @@ message("Using ${IOPSYS}...")
 add_subdirectory("src/os")
 
 # add the executable
-add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT_CPP} ${Sigma_SRC_SYSTEM_H} ${Sigma_SRC_SYSTEM_CPP} ${Sigma_SRC_CONTROLLERS_H} ${Sigma_SRC_CONTROLLERS_CPP})
+add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT_CPP} ${Sigma_SRC_SYSTEM_H} ${Sigma_SRC_SYSTEM_CPP} ${Sigma_SRC_CONTROLLERS_H} ${Sigma_SRC_CONTROLLERS_CPP} ${Sigma_SRC_RESOURCES_H})
 
 # Set the preprocessor define for the IOpSys to use.
 add_definitions(-D${IOPSYS})

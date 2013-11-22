@@ -54,7 +54,7 @@ namespace Sigma{
 
 			void FPSCamera::MouseMove(float x, float y, float dx, float dy) {
 				if (this->mover) {
-					this->mover->RotateTarget(dy,dx,0.0f);
+					this->mover->RotateNow(dy,dx,0.0f);
 				}
 			}
 
@@ -70,10 +70,8 @@ namespace Sigma{
 			}
 
 			void FPSCamera::SetMover(BulletMover* m){
-				if (this->mover) {
-					m->SetTransform(this->Transform);
-					this->mover = m;
-				}
+                m->SetTransform(this->Transform);
+                this->mover = m;
 			}
 		}
 	}
