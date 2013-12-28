@@ -27,20 +27,45 @@ int printOglError(char *file, int line);
 
 namespace Sigma{
 
-	struct RenderTarget {
-		std::vector<GLuint> texture_ids;
-		GLuint fbo_id;
-		GLuint depth_id;
-		unsigned int width;
-		unsigned int height;
+	class OpenGLSystem;
 
-		RenderTarget() : fbo_id(0), depth_id(0) {}
+	/**
+	 * \brief a RenderTarget is a frame-buffer plus textures with convenience methods
+	 *
+	 * A Frame Buffer (or FBO: Frame Buffer Object) is like a hidden internal screen
+	 * which you can render to and save the result as a texture for further processing
+	 */
+	class RenderTarget {
+	public:
+		/** \brief create a RenderTarget; creates a new FBO with a depth buffer and no textures */
+		RenderTarget(const int w, const int h);
+
+		/** \brief destroy the opengl objects referenced by this RenderTarget */
 		virtual ~RenderTarget();
+
+		/** \brief create and attach a depth buffer for this RenderTarget */
+		void CreateDepthBuffer();
+
+		/** \brief create and attach a new texture2D with the given parameters
+		 *
+		 *  \return the id of the new texture
+		 */
+		GLuint CreateTexture(GLint format, GLenum internalFormat, GLenum type);
 
 		void BindWrite();
 		void BindRead();
 		void UnbindWrite();
 		void UnbindRead();
+
+		friend class OpenGLSystem;
+
+	private:
+		void InitBuffers();
+		std::vector<GLuint> texture_ids;
+		GLuint fbo_id;
+		GLuint depth_id;
+		unsigned int width;
+		unsigned int height;
 	};
 
     class OpenGLSystem
@@ -109,7 +134,7 @@ namespace Sigma{
 		 * \brief creates a new render target of desired size
 		 */
 		int createRenderTarget(const unsigned int w, const unsigned int h);
-		
+
 		/*
 		 * \brief returns the fbo_id of primary render target (index 0)
 		 */
@@ -180,7 +205,7 @@ namespace Sigma{
 
         double deltaAccumulator; // milliseconds since last render
         double framerate; // default is 60fps
-		
+
 		// Type of view to create
 		std::string viewMode;
 
