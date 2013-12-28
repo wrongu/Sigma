@@ -413,6 +413,7 @@ namespace Sigma{
 		int componentID = 0;
 		std::string cull_face = "back";
 		std::string shaderfile = "";
+		std::string meshName = "";
 
 		for (auto propitr = properties.begin(); propitr != properties.end(); ++propitr) {
 			const Property*  p = &*propitr;
@@ -445,8 +446,9 @@ namespace Sigma{
 				continue;
 			}
 			else if (p->GetName() == "meshFile") {
-				std::cerr << "Loading mesh: " << p->Get<std::string>() << std::endl;
-				mesh->LoadMesh(p->Get<std::string>());
+				meshName = p->Get<std::string>();
+				std::cerr << "Loading mesh: " << meshName << std::endl;
+				mesh->LoadMesh(meshName);
 			}
 			else if (p->GetName() == "shader") {
 				shaderfile = p->Get<std::string>();
@@ -484,6 +486,12 @@ namespace Sigma{
 		mesh->Transform()->Rotate(rx,ry,rz);
 		if(shaderfile != "") {
 			mesh->LoadShader(shaderfile);
+			if(mesh->IsLightingEnabled() && shaderfile != GLMesh.DEFAULT_SHADER){
+				std::cerr << "WARNING (" << meshName
+					<< "): mesh lighting will only work well using the shader '"
+					<< GLMesh.DEFAULT_SHADER << "', but '" << shaderfile
+					<< "' was specified." << std::endl;
+			}
 		}
 		else {
 			mesh->LoadShader(); // load default
@@ -706,17 +714,23 @@ namespace Sigma{
 				// (this means that other objects are effectively transparent)
 				if(glComp && glComp->IsLightingEnabled()) {
 					GLSLShader &shader = *glComp->GetShader();
+
+					// TODO
+					// As this is written, uniforms are set once per object per frame.
+					// They *can* be set only once, ever, since once a uniform is set
+					// it persists until the program is relinked, and we require all
+					// lit objects to use the same shader program at the moment. So
+					// they could all just share the same uniform values (set once)
 					shader.Use();
+					{
+						// For now, turn on ambient intensity and turn off lighting
+						glUniform1f(shader("ambLightIntensity"), 0.05f);
+						glUniform1f(shader("diffuseLightIntensity"), 0.0f);
+						glUniform1f(shader("specularLightIntensity"), 0.0f);
 
-					// Set view position
-					//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
-
-					// For now, turn on ambient intensity and turn off lighting
-					glUniform1f(shader("ambLightIntensity"), 0.05f);
-					glUniform1f(shader("diffuseLightIntensity"), 0.0f);
-					glUniform1f(shader("specularLightIntensity"), 0.0f);
-
-					glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+					}
+					shader.UnUse();
 				}
 			}
 		}
@@ -783,7 +797,7 @@ namespace Sigma{
 			this->GetView(0)->CalculateFrustum(viewProj);
 
 			/////////////////////
-			// Begin Rendering //
+			// Render G-Buffer //
 			/////////////////////
 
 			this->_RenderClearAll();
@@ -801,7 +815,7 @@ namespace Sigma{
 			// Lighting Pass //
 			///////////////////
 
-			// Disable depth testing
+			// Disable depth testing since depth is stored in the z-buffer
 			glDepthFunc(GL_NONE);
 			glDepthMask(GL_FALSE);
 
