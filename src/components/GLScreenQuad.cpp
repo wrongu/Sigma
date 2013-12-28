@@ -31,7 +31,7 @@ namespace Sigma {
 		GLMesh::InitializeBuffers();
 	}
 
-	void GLScreenQuad::Render(glm::mediump_float *view, glm::mediump_float *proj) {
+	void GLScreenQuad::Render() {
 		//this->shader->Use();
 
 		glDisable(GL_CULL_FACE);

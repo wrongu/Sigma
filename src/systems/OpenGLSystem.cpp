@@ -7,8 +7,6 @@
 #include "components/GLCubeSphere.h"
 #include "components/GLMesh.h"
 #include "components/GLScreenQuad.h"
-#include "components/PointLight.h"
-#include "components/SpotLight.h"
 
 #ifndef __APPLE__
 #include "GL/glew.h"
@@ -486,10 +484,10 @@ namespace Sigma{
 		mesh->Transform()->Rotate(rx,ry,rz);
 		if(shaderfile != "") {
 			mesh->LoadShader(shaderfile);
-			if(mesh->IsLightingEnabled() && shaderfile != GLMesh.DEFAULT_SHADER){
+			if(mesh->IsLightingEnabled() && shaderfile != GLMesh::DEFAULT_SHADER){
 				std::cerr << "WARNING (" << meshName
 					<< "): mesh lighting will only work well using the shader '"
-					<< GLMesh.DEFAULT_SHADER << "', but '" << shaderfile
+					<< GLMesh::DEFAULT_SHADER << "', but '" << shaderfile
 					<< "' was specified." << std::endl;
 			}
 		}
@@ -757,15 +755,129 @@ namespace Sigma{
 	}
 
 	void OpenGLSystem::_RenderAmbient(){
+		// Currently simple constant ambient light, could use SSAO here
+		glm::vec4 ambientLight(0.1f, 0.1f, 0.1f, 1.0f);
+
+		GLSLShader &shader = (*this->ambientQuad.GetShader().get());
+		shader.Use();
+		{
+			// Load variables
+			glUniform4f(shader("ambientColor"), ambientLight.r, ambientLight.g, ambientLight.b, ambientLight.a);
+
+			glUniform1i(shader("colorBuffer"), 0);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+
+			this->ambientQuad.Render();
+		}
+		shader.UnUse();
+	}
+
+	void OpenGLSystem::_RenderPointLight(PointLight *light, glm::mat4 &viewMatrix, glm::mat4 &viewProjInv, glm::vec3 &viewPosition){
+		GLSLShader &shader = (*this->pointQuad.GetShader().get());
+		shader.Use();
+		{
+			// Load variables
+			glUniform3fv(shader("viewPosW"), 3, &viewPosition[0]);
+			glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
+			glUniform3fv(shader("lightPosW"), 1, &light->position[0]);
+			glUniform1f(shader("lightRadius"), light->radius);
+			glUniform4fv(shader("lightColor"), 1, &light->color[0]);
+
+			// TODO set these once when the shader is created, since they are constant
+			glUniform1i(shader("diffuseBuffer"), 0);
+			glUniform1i(shader("normalBuffer"), 1);
+			glUniform1i(shader("depthBuffer"), 2);
+
+			// Bind GBuffer textures
+			// texture 0 is ambient color
+			// texture 1 is normals
+			// texture 2 is z-depth
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+
+			this->pointQuad.Render();
+		}
+		shader.UnUse();
+	}
+
+	void OpenGLSystem::_RenderSpotLight(SpotLight *light, glm::mat4 &viewMatrix, glm::mat4 &viewProjInv){
+		GLSLShader &shader = (*this->spotQuad.GetShader().get());
+		shader.Use();
+		{
+			glm::vec3 position = light->transform.ExtractPosition();
+			glm::vec3 direction = light->transform.GetForward();
+
+			// Load variables
+			glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
+			glUniform3fv(shader("lightPosW"), 1, &position[0]);
+			glUniform3fv(shader("lightDirW"), 1, &direction[0]);
+			glUniform4fv(shader("lightColor"), 1, &light->color[0]);
+			glUniform1f(shader("lightAngle"), light->angle);
+			glUniform1f(shader("lightCosCutoff"), light->cosCutoff);
+			glUniform1f(shader("lightExponent"), light->exponent);
+
+			glUniform1i(shader("diffuseBuffer"), 0);
+			glUniform1i(shader("normalBuffer"), 1);
+			glUniform1i(shader("depthBuffer"), 2);
+
+			// Bind GBuffer textures
+			// texture 0 is ambient color
+			// texture 1 is normals
+			// texture 2 is z-depth
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+
+			this->spotQuad.Render();
+		}
+		shader.UnUse();
 
 	}
 
-	void OpenGLSystem::_RenderSpotLight(){
+	void OpenGLSystem::_RenderUnlit(glm::mat4 &viewMatrix, glm::vec3 &viewPosition){
+		// Loop through and draw each GL Component.
+		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
+			for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
+				IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
 
+				if(glComp && !glComp->IsLightingEnabled()) {
+					GLSLShader &shader = *glComp->GetShader();
+					shader.Use();
+
+					// Set view position
+					glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+
+					glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+				}
+			}
+		}
 	}
 
-	void OpenGLSystem::_RenderUnlit(){
+	void OpenGLSystem::_RenderOverlays(glm::mat4 &viewMatrix){
+		// Enable transparent rendering
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+		for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
+				citr->get()->GetShader()->Use();
+
+				// For now, turn on ambient intensity and turn off lighting
+				glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
+				glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
+				glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
+				citr->get()->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+		}
+
+		// Remove blending
+		glDisable(GL_BLEND);
 	}
 
 	bool OpenGLSystem::Update(const double delta) {
@@ -815,46 +927,23 @@ namespace Sigma{
 			// Lighting Pass //
 			///////////////////
 
-			// Disable depth testing since depth is stored in the z-buffer
-			glDepthFunc(GL_NONE);
-			glDepthMask(GL_FALSE);
-
-			// Bind the second buffer, which is the Light Accumulation Buffer
-			//if(this->renderTargets.size() > 1) {
-			//	this->renderTargets[1]->BindWrite();
-			//}
-
-			// Clear it
-			//glClear(GL_COLOR_BUFFER_BIT);
-
 			// Bind the Geometry buffer for reading
 			if(this->renderTargets.size() > 0) {
 				this->renderTargets[0]->BindRead();
 			}
 
-			// Ambient light pass
+			// Disable depth testing since all further operations are full-screen quads
+			glDepthFunc(GL_NONE);
+			glDepthMask(GL_FALSE);
 
-			// Currently simple constant ambient light, could use SSAO here
-			glm::vec4 ambientLight(0.1f, 0.1f, 0.1f, 1.0f);
-
-			GLSLShader &shader = (*this->ambientQuad.GetShader().get());
-			shader.Use();
-
-			// Load variables
-			glUniform4f(shader("ambientColor"), ambientLight.r, ambientLight.g, ambientLight.b, ambientLight.a);
-
-			glUniform1i(shader("colorBuffer"), 0);
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
-
-			this->ambientQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-
-			shader.UnUse();
+			this->_RenderAmbient();
 
 			// Dynamic light passes
 
 			// Loop through each light, render a fullscreen quad if it is visible
-
+			// TODO - define a spherical mesh. Use it to bound each light.
+			//	Then, by rendering just this mesh, it only processes pixels affected by
+			//	each light (plus some extra culling logic for this bounding mesh)
 			for(auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
 				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
 					// Check if this component is a point light
@@ -862,84 +951,23 @@ namespace Sigma{
 
 					// If it is a point light, and it intersects the frustum, then render
 					if(light && this->GetView(0)->CameraFrustum.isectSphere(light->position, light->radius) ) {
-
-						GLSLShader &shader = (*this->pointQuad.GetShader().get());
-						shader.Use();
-
-						// Load variables
-						glUniform3fv(shader("viewPosW"), 3, &viewPosition[0]);
-						glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
-						glUniform3fv(shader("lightPosW"), 1, &light->position[0]);
-						glUniform1f(shader("lightRadius"), light->radius);
-						glUniform4fv(shader("lightColor"), 1, &light->color[0]);
-
-						glUniform1i(shader("diffuseBuffer"), 0);
-						glUniform1i(shader("normalBuffer"), 1);
-						glUniform1i(shader("depthBuffer"), 2);
-
-						// Bind GBuffer textures
-						glActiveTexture(GL_TEXTURE0);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
-						glActiveTexture(GL_TEXTURE1);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
-						glActiveTexture(GL_TEXTURE2);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
-
-						this->pointQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-
-						shader.UnUse();
-
+						this->_RenderPointLight(light, viewMatrix, viewProjInv, viewPosition);
 						continue;
 					}
 
 					SpotLight *spotLight = dynamic_cast<SpotLight *>(citr->second.get());
-
 					if(spotLight && spotLight->IsEnabled()) {
-						GLSLShader &shader = (*this->spotQuad.GetShader().get());
-						shader.Use();
-
-						glm::vec3 position = spotLight->transform.ExtractPosition();
-						glm::vec3 direction = spotLight->transform.GetForward();
-
-						// Load variables
-						glUniformMatrix4fv(shader("viewProjInverse"), 1, false, &viewProjInv[0][0]);
-						glUniform3fv(shader("lightPosW"), 1, &position[0]);
-						glUniform3fv(shader("lightDirW"), 1, &direction[0]);
-						glUniform4fv(shader("lightColor"), 1, &spotLight->color[0]);
-						glUniform1f(shader("lightAngle"), spotLight->angle);
-						glUniform1f(shader("lightCosCutoff"), spotLight->cosCutoff);
-						glUniform1f(shader("lightExponent"), spotLight->exponent);
-
-						glUniform1i(shader("diffuseBuffer"), 0);
-						glUniform1i(shader("normalBuffer"), 1);
-						glUniform1i(shader("depthBuffer"), 2);
-
-						// Bind GBuffer textures
-						glActiveTexture(GL_TEXTURE0);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
-						glActiveTexture(GL_TEXTURE1);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
-						glActiveTexture(GL_TEXTURE2);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
-
-						this->spotQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-
-						shader.UnUse();
-
+						this->_RenderSpotLight(spotLight, viewMatrix, viewProjInv);
 						continue;
 					}
 				}
 			}
 
-			// Unbind the Geometry buffer for reading
+			// Deferred rendering is done.
+			// Unbind the Geometry buffer
 			if(this->renderTargets.size() > 0) {
 				this->renderTargets[0]->UnbindRead();
 			}
-
-			// Unbind the second buffer, which is the Light Accumulation Buffer
-			//if(this->renderTargets.size() > 1) {
-			//	this->renderTargets[1]->UnbindWrite();
-			//}
 
 			// Remove blending
 			glDisable(GL_BLEND);
@@ -958,45 +986,13 @@ namespace Sigma{
 			// Draw Unlit Objects
 			///////////////////////
 
-			// Loop through and draw each GL Component component.
-			for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
-				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
-					IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
-
-					if(glComp && !glComp->IsLightingEnabled()) {
-						glComp->GetShader()->Use();
-
-						// Set view position
-						glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
-
-						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-					}
-				}
-			}
+			this->_RenderUnlit(viewMatrix, viewPosition);
 
 			//////////////////
 			// Overlay Pass //
 			//////////////////
 
-			// Enable transparent rendering
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-			for (auto citr = this->screensSpaceComp.begin(); citr != this->screensSpaceComp.end(); ++citr) {
-					citr->get()->GetShader()->Use();
-
-					// Set view position
-					//glUniform3f(glGetUniformBlockIndex(citr->get()->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
-
-					// For now, turn on ambient intensity and turn off lighting
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
-					glUniform1f(glGetUniformLocation(citr->get()->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-					citr->get()->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-			}
-
-			// Remove blending
-			glDisable(GL_BLEND);
+			this->_RenderOverlays(viewMatrix);
 
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);

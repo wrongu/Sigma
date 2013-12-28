@@ -15,7 +15,8 @@ public:
 	virtual ~GLScreenQuad();
 
 	virtual void InitializeBuffers();
-	virtual void Render(glm::mediump_float *view, glm::mediump_float *proj);
+	inline virtual void Render(glm::mediump_float *view, glm::mediump_float *proj) { this->Render(); }
+	void Render();
 
 	// Screen space 0.0 - 1.0
 	void SetPosition(float x, float y) { this->x=x; this->y=y; }

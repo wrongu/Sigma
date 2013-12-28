@@ -19,6 +19,8 @@
 #include <vector>
 #include "resources/GLTexture.h"
 #include "components/GLScreenQuad.h"
+#include "components/PointLight.h"
+#include "components/SpotLight.h"
 
 struct IGLView;
 
@@ -198,8 +200,10 @@ namespace Sigma{
         void _RenderClearAll();
         void _RenderGBuffer(glm::mat4 &viewMatrix);
         void _RenderAmbient();
-        void _RenderSpotLight();
-        void _RenderUnlit();
+        void _RenderPointLight(PointLight *light, glm::mat4 &viewMatrix, glm::mat4 &viewProjInv, glm::vec3 &viewPosition);
+        void _RenderSpotLight(SpotLight *light, glm::mat4 &viewMatrix, glm::mat4 &viewProjInv);
+        void _RenderUnlit(glm::mat4 &viewMatrix, glm::vec3 &viewPosition);
+        void _RenderOverlays(glm::mat4 &viewMatrix);
 
         unsigned int windowWidth; // Store the width of our window
         unsigned int windowHeight; // Store the height of our window
