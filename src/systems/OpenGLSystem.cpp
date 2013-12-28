@@ -33,7 +33,7 @@ namespace Sigma{
 		// create a render buffer that is width x height
 		glGenRenderbuffers(1, &this->depth_id);
 		glBindRenderbuffer(GL_RENDERBUFFER, this->depth_id);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, this->width, this->height);
+		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, this->width, this->height);
 
 		printOpenGLError();
 
