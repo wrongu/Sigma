@@ -194,6 +194,13 @@ namespace Sigma{
 
 		static std::map<std::string, Sigma::resource::GLTexture> textures;
     private:
+        // helper-methods for rendering (refactored)
+        void _RenderClearAll();
+        void _RenderGBuffer(glm::mat4 &viewMatrix);
+        void _RenderAmbient();
+        void _RenderSpotLight();
+        void _RenderUnlit();
+
         unsigned int windowWidth; // Store the width of our window
         unsigned int windowHeight; // Store the height of our window
 

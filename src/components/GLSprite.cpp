@@ -76,12 +76,6 @@ namespace Sigma{
         glEnableVertexAttribArray(uvlocation);
 
 		glBindVertexArray(0);
-		this->shader->Use();
-		this->shader->AddUniform("in_Model");
-		this->shader->AddUniform("in_View");
-		this->shader->AddUniform("in_Proj");
-		this->shader->AddUniform("tex");
-		this->shader->UnUse();
     }
 
 	void GLSprite::LoadShader() {

@@ -21,7 +21,7 @@ namespace Sigma{
 	// RenderTarget methods
 	RenderTarget::RenderTarget(const int w, const int h) : width(w), height(h)
 	{
-        this->InitBuffers();
+		this->InitBuffers();
 	}
 
 	RenderTarget::~RenderTarget() {
@@ -32,8 +32,8 @@ namespace Sigma{
 	}
 
 	void RenderTarget::CreateDepthBuffer(){
-	    // create a render buffer that is width x height
-	    glGenRenderbuffers(1, &this->depth_id);
+		// create a render buffer that is width x height
+		glGenRenderbuffers(1, &this->depth_id);
 		glBindRenderbuffer(GL_RENDERBUFFER, this->depth_id);
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, this->width, this->height);
 
@@ -46,12 +46,12 @@ namespace Sigma{
 	}
 
 	void RenderTarget::InitBuffers(){
-        // Create the frame buffer object
+		// Create the frame buffer object
 		glGenFramebuffers(1, &this->fbo_id);
 		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
 		printOpenGLError();
 
-        // create a depth buffer for this fbo (TODO should this be optional?)
+		// create a depth buffer for this fbo (TODO should this be optional?)
 		this->CreateDepthBuffer();
 
 		//Does the GPU support current FBO configuration?
@@ -72,10 +72,10 @@ namespace Sigma{
 	}
 
 	GLuint RenderTarget::CreateTexture(GLint format, GLenum internalFormat, GLenum type){
-	    // bind this RT's frame buffer object so that the new texture is attached properly
-	    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->fbo_id);
+		// bind this RT's frame buffer object so that the new texture is attached properly
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->fbo_id);
 
-        // create the texture
+		// create the texture
 		GLuint texture_id;
 		glGenTextures(1, &texture_id);
 		glBindTexture(GL_TEXTURE_2D, texture_id);
@@ -109,7 +109,7 @@ namespace Sigma{
 				assert(0 && "Error: Framebuffer format is not compatible.");
 		}
 
-        // reset fbo and texture bindings
+		// reset fbo and texture bindings
 		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
@@ -152,7 +152,7 @@ namespace Sigma{
 	//std::map<std::string, resource::GLTexture> OpenGLSystem::textures = std::map<std::string, resource::GLTexture>();
 
 	std::map<std::string, Sigma::IFactory::FactoryFunction>
-        OpenGLSystem::getFactoryFunctions() {
+		OpenGLSystem::getFactoryFunctions() {
 		using namespace std::placeholders;
 
 		std::map<std::string, Sigma::IFactory::FactoryFunction> retval;
@@ -166,8 +166,8 @@ namespace Sigma{
 		retval["SpotLight"] = std::bind(&OpenGLSystem::createSpotLight,this,_1,_2);
 		retval["GLScreenQuad"] = std::bind(&OpenGLSystem::createScreenQuad,this,_1,_2);
 
-        return retval;
-    }
+		return retval;
+	}
 
 	IComponent* OpenGLSystem::createGLView(const unsigned int entityID, const std::vector<Property> &properties, std::string mode) {
 		viewMode = mode;
@@ -488,10 +488,10 @@ namespace Sigma{
 		else {
 			mesh->LoadShader(); // load default
 		}
-        mesh->InitializeBuffers();
-        this->addComponent(entityID,mesh);
-        return mesh;
-    }
+		mesh->InitializeBuffers();
+		this->addComponent(entityID,mesh);
+		return mesh;
+	}
 
 	IComponent* OpenGLSystem::createScreenQuad(const unsigned int entityID, const std::vector<Property> &properties) {
 		Sigma::GLScreenQuad* quad = new Sigma::GLScreenQuad(entityID);
@@ -681,104 +681,125 @@ namespace Sigma{
 		rt->CreateTexture(format, internalFormat, type);
 	}
 
-    bool OpenGLSystem::Update(const double delta) {
-        this->deltaAccumulator += delta;
+	void OpenGLSystem::_RenderClearAll(){
+		// Clear the backbuffer and primary depth/stencil buffer
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
+		glViewport(0, 0, this->windowWidth, this->windowHeight); // Set the viewport size to fill the window
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+	}
 
-        // Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
-        //  ..if so, it's time to render a new frame
-        if (this->deltaAccumulator > (1.0 / this->framerate)) {
+	void OpenGLSystem::_RenderGBuffer(glm::mat4 &viewMatrix){
+		// Bind the first buffer, which is the Geometry Buffer
+		if(this->renderTargets.size() > 0) {
+			this->renderTargets[0]->BindWrite();
+		}
+
+		// Clear the GBuffer
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+
+		// Loop through and draw each GL Component component.
+		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
+			for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
+				IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
+				// only output geometry to g-buffer if lighting enabled
+				// (this means that other objects are effectively transparent)
+				if(glComp && glComp->IsLightingEnabled()) {
+					GLSLShader &shader = *glComp->GetShader();
+					shader.Use();
+
+					// Set view position
+					//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
+
+					// For now, turn on ambient intensity and turn off lighting
+					glUniform1f(shader("ambLightIntensity"), 0.05f);
+					glUniform1f(shader("diffuseLightIntensity"), 0.0f);
+					glUniform1f(shader("specularLightIntensity"), 0.0f);
+
+					glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+				}
+			}
+		}
+
+		// Unbind the first buffer, which is the Geometry Buffer
+		if(this->renderTargets.size() > 0) {
+			this->renderTargets[0]->UnbindWrite();
+		}
+
+		// Copy gbuffer's depth buffer to the screen depth buffer
+		// needed for non deferred rendering at the end of this method
+		// NOTE: I'm sure there's a faster way to do this
+		if(this->renderTargets.size() > 0) {
+			this->renderTargets[0]->BindRead();
+		}
+
+		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
+			  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+
+		if(this->renderTargets.size() > 0) {
+			this->renderTargets[0]->UnbindRead();
+		}
+	}
+
+	void OpenGLSystem::_RenderAmbient(){
+
+	}
+
+	void OpenGLSystem::_RenderSpotLight(){
+
+	}
+
+	void OpenGLSystem::_RenderUnlit(){
+
+	}
+
+	bool OpenGLSystem::Update(const double delta) {
+		this->deltaAccumulator += delta;
+
+		// Check if the deltaAccumulator is greater than 1/<framerate>th of a second.
+		//  ..if so, it's time to render a new frame
+		if (this->deltaAccumulator > (1.0 / this->framerate)) {
 
 			/////////////////////
 			// Rendering Setup //
 			/////////////////////
 
 			glm::vec3 viewPosition;
-			glm::mat4 viewProjInv;
+			glm::mat4 viewMatrix, viewProj, viewProjInv;
 
 			// Setup the view matrix and position variables
-			glm::mat4 viewMatrix;
 			if (this->views.size() > 0) {
 				viewMatrix = this->views[this->views.size() - 1]->GetViewMatrix();
 				viewPosition = this->views[this->views.size() - 1]->Transform()->GetPosition();
 			}
 
 			// Setup the projection matrix
-			glm::mat4 viewProj = glm::mul(this->ProjectionMatrix, viewMatrix);
+			viewProj = glm::mul(this->ProjectionMatrix, viewMatrix);
 
 			viewProjInv = glm::inverse(viewProj);
 
 			// Calculate frustum for culling
 			this->GetView(0)->CalculateFrustum(viewProj);
 
-			// Clear the backbuffer and primary depth/stencil buffer
-			glClearColor(0.0f,0.0f,0.0f,1.0f);
-            glViewport(0, 0, this->windowWidth, this->windowHeight); // Set the viewport size to fill the window
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+			/////////////////////
+			// Begin Rendering //
+			/////////////////////
 
-			//////////////////
-			// GBuffer Pass //
-			//////////////////
+			this->_RenderClearAll();
 
-			// Bind the first buffer, which is the Geometry Buffer
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->BindWrite();
-			}
-
-			// Disable blending
+			// Disable blending since the GBuffer is outputting geometry, not summing light
 			glDisable(GL_BLEND);
-
-			// Clear the GBuffer
-            glClearColor(0.0f,0.0f,0.0f,1.0f);
-            glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
-
-			// Loop through and draw each GL Component component.
-			for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
-				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
-					IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
-
-					if(glComp && glComp->IsLightingEnabled()) {
-						glComp->GetShader()->Use();
-
-						// Set view position
-						//glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
-
-						// For now, turn on ambient intensity and turn off lighting
-						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "ambLightIntensity"), 0.05f);
-						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "diffuseLightIntensity"), 0.0f);
-						glUniform1f(glGetUniformLocation(glComp->GetShader()->GetProgram(), "specularLightIntensity"), 0.0f);
-
-						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-					}
-				}
+			{
+				this->_RenderGBuffer(viewMatrix);
 			}
-
-			// Unbind the first buffer, which is the Geometry Buffer
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->UnbindWrite();
-			}
-
-			// Copy gbuffer's depth buffer to the screen depth buffer
-			// needed for non deferred rendering at the end of this method
-			// NOTE: I'm sure there's a faster way to do this
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->BindRead();
-			}
-
-			glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-			glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
-                  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->UnbindRead();
-			}
+			// Turn on additive blending for the lighting passes
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
 
 			///////////////////
 			// Lighting Pass //
 			///////////////////
-
-			// Turn on additive blending
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE);
 
 			// Disable depth testing
 			glDepthFunc(GL_NONE);
@@ -790,7 +811,7 @@ namespace Sigma{
 			//}
 
 			// Clear it
-            //glClear(GL_COLOR_BUFFER_BIT);
+			//glClear(GL_COLOR_BUFFER_BIT);
 
 			// Bind the Geometry buffer for reading
 			if(this->renderTargets.size() > 0) {
@@ -966,11 +987,11 @@ namespace Sigma{
 			// Unbind frame buffer
 			glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-            this->deltaAccumulator = 0.0;
-            return true;
-        }
-        return false;
-    }
+			this->deltaAccumulator = 0.0;
+			return true;
+		}
+		return false;
+	}
 
 	GLTransform *OpenGLSystem::GetTransformFor(const unsigned int entityID) {
 		auto entity = &(_Components[entityID]);
@@ -989,10 +1010,10 @@ namespace Sigma{
 		return 0;
 	}
 
-    const int* OpenGLSystem::Start() {
-        // Use the GL3 way to get the version number
-        glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
-        glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
+	const int* OpenGLSystem::Start() {
+		// Use the GL3 way to get the version number
+		glGetIntegerv(GL_MAJOR_VERSION, &OpenGLVersion[0]);
+		glGetIntegerv(GL_MINOR_VERSION, &OpenGLVersion[1]);
 
 		// Sanity check to make sure we are at least in a good major version number.
 		assert((OpenGLVersion[0] > 1) && (OpenGLVersion[0] < 5));
@@ -1004,30 +1025,30 @@ namespace Sigma{
 		}
 
 		// Generate a projection matrix (the "view") based on basic window dimensions
-        this->ProjectionMatrix = glm::perspective(
-            45.0f, // field-of-view (height)
-            aspectRatio, // aspect ratio
-            0.1f, // near culling plane
-            10000.0f // far culling plane
-            );
+		this->ProjectionMatrix = glm::perspective(
+			45.0f, // field-of-view (height)
+			aspectRatio, // aspect ratio
+			0.1f, // near culling plane
+			10000.0f // far culling plane
+			);
 
-        // App specific global gl settings
-        glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
+		// App specific global gl settings
+		glPolygonMode( GL_FRONT_AND_BACK, GL_FILL );
 #if __APPLE__
-        // GL_TEXTURE_CUBE_MAP_SEAMLESS and GL_MULTISAMPLE are Core.
-        glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // allows for cube-mapping without seams
-        glEnable(GL_MULTISAMPLE);
+		// GL_TEXTURE_CUBE_MAP_SEAMLESS and GL_MULTISAMPLE are Core.
+		glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // allows for cube-mapping without seams
+		glEnable(GL_MULTISAMPLE);
 #else
-        if (GLEW_AMD_seamless_cubemap_per_texture) {
+		if (GLEW_AMD_seamless_cubemap_per_texture) {
 			glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS); // allows for cube-mapping without seams
 		}
 		if (GLEW_ARB_multisample) {
 			glEnable(GL_MULTISAMPLE_ARB);
 		}
 #endif
-        glEnable(GL_CULL_FACE);
-        glCullFace(GL_BACK);
-        glEnable(GL_DEPTH_TEST);
+		glEnable(GL_CULL_FACE);
+		glCullFace(GL_BACK);
+		glEnable(GL_DEPTH_TEST);
 
 		// Setup a screen quad for deferred rendering
 		this->pointQuad.SetSize(1.0f, 1.0f);
@@ -1036,35 +1057,11 @@ namespace Sigma{
 		this->pointQuad.InitializeBuffers();
 		this->pointQuad.SetCullFace("none");
 
-		this->pointQuad.GetShader()->Use();
-		this->pointQuad.GetShader()->AddUniform("viewPosW");
-		this->pointQuad.GetShader()->AddUniform("viewProjInverse");
-		this->pointQuad.GetShader()->AddUniform("lightPosW");
-		this->pointQuad.GetShader()->AddUniform("lightRadius");
-		this->pointQuad.GetShader()->AddUniform("lightColor");
-		this->pointQuad.GetShader()->AddUniform("diffuseBuffer");
-		this->pointQuad.GetShader()->AddUniform("normalBuffer");
-		this->pointQuad.GetShader()->AddUniform("depthBuffer");
-		this->pointQuad.GetShader()->UnUse();
-
 		this->spotQuad.SetSize(1.0f, 1.0f);
 		this->spotQuad.SetPosition(0.0f, 0.0f);
 		this->spotQuad.LoadShader("shaders/spotlight");
 		this->spotQuad.InitializeBuffers();
 		this->spotQuad.SetCullFace("none");
-
-		this->spotQuad.GetShader()->Use();
-		this->spotQuad.GetShader()->AddUniform("viewProjInverse");
-		this->spotQuad.GetShader()->AddUniform("lightPosW");
-		this->spotQuad.GetShader()->AddUniform("lightDirW");
-		this->spotQuad.GetShader()->AddUniform("lightColor");
-		this->spotQuad.GetShader()->AddUniform("lightAngle");
-		this->spotQuad.GetShader()->AddUniform("lightCosCutoff");
-		this->spotQuad.GetShader()->AddUniform("lightExponent");
-		this->spotQuad.GetShader()->AddUniform("diffuseBuffer");
-		this->spotQuad.GetShader()->AddUniform("normalBuffer");
-		this->spotQuad.GetShader()->AddUniform("depthBuffer");
-		this->spotQuad.GetShader()->UnUse();
 
 		this->ambientQuad.SetSize(1.0f, 1.0f);
 		this->ambientQuad.SetPosition(0.0f, 0.0f);
@@ -1072,16 +1069,11 @@ namespace Sigma{
 		this->ambientQuad.InitializeBuffers();
 		this->ambientQuad.SetCullFace("none");
 
-		this->ambientQuad.GetShader()->Use();
-		this->ambientQuad.GetShader()->AddUniform("ambientColor");
-		this->ambientQuad.GetShader()->AddUniform("colorBuffer");
-		this->ambientQuad.GetShader()->UnUse();
+		return OpenGLVersion;
+	}
 
-        return OpenGLVersion;
-    }
-
-    void OpenGLSystem::SetViewportSize(const unsigned int width, const unsigned int height) {
-        this->windowHeight = height;
+	void OpenGLSystem::SetViewportSize(const unsigned int width, const unsigned int height) {
+		this->windowHeight = height;
 		this->windowWidth = width;
 
 		// Determine the aspect ratio and sanity check it to a safe ratio
@@ -1090,14 +1082,14 @@ namespace Sigma{
 			aspectRatio = 4.0f / 3.0f;
 		}
 
-        // update projection matrix based on new aspect ratio
-        this->ProjectionMatrix = glm::perspective(
-            45.0f,
-            aspectRatio,
-            0.1f,
-            10000.0f
-            );
-    }
+		// update projection matrix based on new aspect ratio
+		this->ProjectionMatrix = glm::perspective(
+			45.0f,
+			aspectRatio,
+			0.1f,
+			10000.0f
+			);
+	}
 
 } // namespace Sigma
 

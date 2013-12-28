@@ -91,17 +91,6 @@ namespace Sigma{
         }
 
         glBindVertexArray(0); // Reset the buffer binding because we are good programmers.
-
-		this->shader->Use();
-		this->shader->AddUniform("in_Model");
-		this->shader->AddUniform("in_View");
-		this->shader->AddUniform("in_Proj");
-		this->shader->AddUniform("texEnabled");
-		this->shader->AddUniform("ambientTexEnabled");
-		this->shader->AddUniform("diffuseTexEnabled");
-		this->shader->AddUniform("texAmb");
-		this->shader->AddUniform("texDiff");
-		this->shader->UnUse();
     }
 
     void GLMesh::Render(glm::mediump_float *view, glm::mediump_float *proj) {

@@ -72,9 +72,7 @@ namespace Sigma {
 		// shader program was compiled and linked in GLMesh::InitializeBuffers.
 		//  Now we can set relevant custom uniform values
 		this->shader->Use();
-		this->shader->AddUniform("cubeMap");
 		glUniform1i((*this->shader)("cubeMap"), 0);
-		this->shader->AddUniform("cubeNormalMap");
 		glUniform1i((*this->shader)("cubeNormalMap"), 1);
 		this->shader->UnUse();
 

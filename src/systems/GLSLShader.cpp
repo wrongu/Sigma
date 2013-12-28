@@ -90,20 +90,16 @@ void GLSLShader::UnUse() {
 	glUseProgram(0);
 }
 
-void GLSLShader::AddAttribute(const std::string attribute) {
-	_attributeList[attribute]= glGetAttribLocation(_program, attribute.c_str());
-}
-
 //An indexer that returns the location of the attribute
 GLuint GLSLShader::operator [](const std::string attribute) {
+	if(_attributeList.find(attribute) == _attributeList.end())
+        _attributeList[attribute] = glGetAttribLocation(_program, attribute.c_str());
 	return _attributeList[attribute];
 }
 
-void GLSLShader::AddUniform(const std::string uniform) {
-	_uniformLocationList[uniform] = glGetUniformLocation(_program, uniform.c_str());
-}
-
 GLuint GLSLShader::operator()(const std::string uniform){
+	if(_uniformLocationList.find(uniform) == _uniformLocationList.end())
+        _uniformLocationList[uniform] = glGetUniformLocation(_program, uniform.c_str());
 	return _uniformLocationList[uniform];
 }
 GLuint GLSLShader::GetProgram() const {
