@@ -22,6 +22,9 @@
 #include "components/PointLight.h"
 #include "components/SpotLight.h"
 
+// TESTING
+#include <cmath>
+
 struct IGLView;
 
 int printOglError(char *file, int line);
@@ -30,6 +33,61 @@ int printOglError(char *file, int line);
 namespace Sigma{
 
 	class OpenGLSystem;
+	class RenderTarget;
+
+	// FOR TESTING:
+    struct BlurEffect{
+        GLScreenQuad target;
+        GLuint gauss_texture_id;
+        int samples;
+        float width_in_pixels;
+        float *gaussian_samples;
+
+        BlurEffect(int target_eid) : target(target_eid){}
+
+        ~BlurEffect(){
+            glDeleteTextures(1, &gauss_texture_id);
+            delete[] gaussian_samples;
+        }
+
+        void InitGLBuffers(int s, float width, float mag, float s2){
+            this->samples = s;
+            this->width_in_pixels = width;
+            glGenTextures(1, &gauss_texture_id);
+            glBindTexture(GL_TEXTURE_1D, gauss_texture_id);
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+            gaussian_samples = new float[samples];
+            float pixels_per_sample = width_in_pixels / static_cast<float>(samples);
+            double x, root_2_pi = 2.506628, e = 2.718282, mu = ((double) samples - 1) / 2.0;
+            for(int i = 0; i < samples; ++i){
+                // 1D normal distribution
+                x = ((double) i) - mu;
+                x *= pixels_per_sample;
+                gaussian_samples [i] = static_cast<float>(mag/root_2_pi * exp(-(x*x)/(2.0F*s2)));
+            }
+
+            std::cout << "GAUSS VECTOR:" << std::endl;
+            for(int i = 0; i < samples; ++i){
+                std::cout << gaussian_samples[i] << " ";
+            }
+            std::cout << std::endl;
+
+            glTexImage1D(GL_TEXTURE_1D, 0, GL_R16F, s, 0, GL_RED, GL_FLOAT, gaussian_samples);
+
+            GLSLShader &blurShader = *target.GetShader();
+            blurShader.Use();
+            {
+                glUniform1i(blurShader("samples"), this->samples);
+                glUniform1f(blurShader("blur_width"), this->width_in_pixels);
+                glUniform1i(blurShader("screenBuffer"), 0);
+                glUniform1i(blurShader("gaussian"), 1);
+            }
+            blurShader.UnUse();
+        }
+    };
 
 	/**
 	 * \brief a RenderTarget is a frame-buffer plus textures with convenience methods
@@ -58,6 +116,9 @@ namespace Sigma{
 		void BindRead();
 		void UnbindWrite();
 		void UnbindRead();
+
+		int GetWidth() const {return width;}
+		int GetHeight() const {return height;}
 
 		friend class OpenGLSystem;
 
@@ -196,6 +257,9 @@ namespace Sigma{
 		const std::string& GetViewMode() { return this->viewMode; }
 
 		static std::map<std::string, Sigma::resource::GLTexture> textures;
+
+		// TESTING
+		void SetBlur(bool b) { this->blurOn = b; }
     private:
         // helper-methods for rendering (refactored)
         void _RenderClearAll();
@@ -230,7 +294,10 @@ namespace Sigma{
 
 		std::vector<std::unique_ptr<IGLComponent>> screensSpaceComp; // A vector that holds only screen space components. These are rendered separately.
 
-		//std::map<std::string, Sigma::resource::GLTexture> textures;
+		// TESTING POST-PROCESSING EFFECTS
+		bool blurOn;
+		BlurEffect blur;
     }; // class OpenGLSystem
+
 } // namespace Sigma
 #endif // OPENGLSYSTEM_H

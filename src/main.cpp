@@ -58,7 +58,7 @@ int main(int argCount, char **argValues) {
 	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
 	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
 	glsys.createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
-
+	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // postprocess temp storage
 	///////////////////
 	// Setup physics //
 	///////////////////
@@ -211,6 +211,20 @@ int main(int argCount, char **argValues) {
 			} else if (fs==FL_ON) {
 				fs=FL_TURNING_OFF;
 			}
+		}
+
+		/////////////////////////////////
+		// TESTING POSTPROCESS EFFECTS //
+		/////////////////////////////////
+
+		// turn blur on/off
+		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_1)){
+            std::cout << "Turning Blur On" << std::endl;
+            glsys.SetBlur(true);
+		}
+		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_2)){
+            std::cout << "Turning Blur Off" << std::endl;
+            glsys.SetBlur(false);
 		}
 
 		if(glfwos.CheckKeyState(Sigma::event::KS_UP, GLFW_KEY_F)) {

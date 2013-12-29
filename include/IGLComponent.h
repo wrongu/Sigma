@@ -66,7 +66,7 @@ namespace Sigma {
 	public:
 		SET_COMPONENT_TYPENAME("IGLComponent");
 
-		IGLComponent() 
+		IGLComponent()
 			: lightingEnabled(true), SpatialComponent(0) {} // Default ctor setting entity ID to 0.
 		IGLComponent(const int entityID)
 			: lightingEnabled(true), SpatialComponent(entityID) {} // Ctor that sets the entity ID.

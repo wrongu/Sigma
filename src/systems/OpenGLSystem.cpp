@@ -159,7 +159,7 @@ namespace Sigma{
 	std::map<std::string, Sigma::resource::GLTexture> OpenGLSystem::textures;
 
 	OpenGLSystem::OpenGLSystem() : windowWidth(1024), windowHeight(768), deltaAccumulator(0.0),
-		framerate(60.0f), pointQuad(1000), ambientQuad(1001), spotQuad(1002), viewMode("") {}
+		framerate(60.0f), pointQuad(1000), ambientQuad(1001), spotQuad(1002), viewMode(""), blur(1003) {}
 
 	//std::map<std::string, resource::GLTexture> OpenGLSystem::textures = std::map<std::string, resource::GLTexture>();
 
@@ -804,7 +804,7 @@ namespace Sigma{
 			glUniform1i(shader("depthBuffer"), 2);
 
 			// Bind GBuffer textures
-			// texture 0 is ambient color
+			// texture 0 is color
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
@@ -840,7 +840,7 @@ namespace Sigma{
 			glUniform1i(shader("depthBuffer"), 2);
 
 			// Bind GBuffer textures
-			// texture 0 is ambient color
+			// texture 0 is color
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
@@ -918,11 +918,11 @@ namespace Sigma{
 			// Calculate frustum for culling
 			this->GetView(0)->CalculateFrustum(viewProj);
 
+			this->_RenderClearAll();
+
 			/////////////////////
 			// Render G-Buffer //
 			/////////////////////
-
-			this->_RenderClearAll();
 
 			// Disable blending since the GBuffer is outputting geometry, not summing light
 			glDisable(GL_BLEND);
@@ -971,6 +971,39 @@ namespace Sigma{
 						continue;
 					}
 				}
+			}
+			glActiveTexture(GL_TEXTURE0);
+
+			/////////////
+			// TESTING //
+			/////////////
+			if(this->blurOn){
+				// there are problems if we try to read from the buffer that we are writing to.
+				// So we hack it by using the 4th texture of the G-Buffer to ping-pong the writing target
+				GLSLShader &blurShader = *this->blur.target.GetShader();
+				blurShader.Use();
+				{
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_1D, this->blur.gauss_texture_id);
+					glActiveTexture(GL_TEXTURE0);
+
+					int w = this->renderTargets[0]->GetWidth();
+					int h = this->renderTargets[0]->GetHeight();
+
+                    // HORIZONTAL BLUR
+                    glDrawBuffers(1, &renderTargets[0]->texture_ids[3]); // write to buffer 3
+                    glUniform1i(blurShader("screenBuffer"), 0); // read from buffer 0
+					glUniform1i(blurShader("orientation"), 0);  // 0 is horizontal
+					glUniform1f(blurShader("texel_size"), 1.0 / ((float) w));
+					this->blur.target.Render();
+
+                    glDrawBuffers(1, &renderTargets[0]->texture_ids[0]); // write to buffer 0
+                    glUniform1i(blurShader("screenBuffer"), 3); // read from buffer 3
+					glUniform1i(blurShader("orientation"), 1);  // 1 is vertical
+					glUniform1f(blurShader("texel_size"), 1.0 / ((float) h));
+					this->blur.target.Render();
+				}
+				blurShader.UnUse();
 			}
 
 			// Deferred rendering is done.
@@ -1091,6 +1124,14 @@ namespace Sigma{
 		this->ambientQuad.Inverted(true);
 		this->ambientQuad.InitializeBuffers();
 		this->ambientQuad.SetCullFace("none");
+
+		this->blur.target.SetSize(1.0f, 1.0f);
+		this->blur.target.SetPosition(0.0f, 0.0f);
+		this->blur.target.LoadShader("shaders/blur");
+		this->blur.target.Inverted(true);
+		this->blur.target.InitializeBuffers();
+		this->blur.target.SetCullFace("none");
+		this->blur.InitGLBuffers(8, 6.0, 1.0f, 2.0f);
 
 		return OpenGLVersion;
 	}
