@@ -17,40 +17,29 @@
 
 namespace Sigma{
 	// RenderTarget methods
-	RenderTarget::RenderTarget(const int w, const int h) : width(w), height(h)
+	RenderTarget::RenderTarget(const int w, const int h, const bool depth) : width(w), height(h), hasDepth(depth)
 	{
 		this->InitBuffers();
 	}
 
 	RenderTarget::~RenderTarget() {
 		glDeleteTextures(this->texture_ids.size(), &this->texture_ids[0]); // Perhaps should check if texture was created for this RT or is used elsewhere
-		glDeleteRenderbuffers(1, &this->depth_id);
+		if(this->hasDepth){
+			glDeleteRenderbuffers(1, &this->depth_id);
+		}
 		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glDeleteFramebuffers(1, &this->fbo_id);
-	}
-
-	void RenderTarget::CreateDepthBuffer(){
-		// create a render buffer that is width x height
-		glGenRenderbuffers(1, &this->depth_id);
-		glBindRenderbuffer(GL_RENDERBUFFER, this->depth_id);
-		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, this->width, this->height);
-
-		printOpenGLError();
-
-		//Attach depth buffer to this FBO
-		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depth_id);
-
-		printOpenGLError();
 	}
 
 	void RenderTarget::InitBuffers(){
 		// Create the frame buffer object
 		glGenFramebuffers(1, &this->fbo_id);
-		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
 		printOpenGLError();
 
-		// create a depth buffer for this fbo (TODO should this be optional?)
-		this->CreateDepthBuffer();
+		// Create the depth render buffer
+		if(this->hasDepth) {
+			this->CreateDepthBuffer();
+		}
 
 		//Does the GPU support current FBO configuration?
 		GLenum status;
@@ -69,46 +58,71 @@ namespace Sigma{
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 	}
 
+	void RenderTarget::CreateDepthBuffer(){
+		glGenRenderbuffers(1, &this->depth_id);
+		glBindRenderbuffer(GL_RENDERBUFFER, this->depth_id);
+		{
+			// set bit width for this depth buffer
+			// tests indicated that DEPTH_24_STENCIL8 is the most compatible cross-platform value
+			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, this->width, this->height);
+			printOpenGLError();
+		}
+		glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+		//Attach depth buffer to this FBO
+		glBindFramebuffer(GL_FRAMEBUFFER, this->fbo_id);
+		{
+			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, this->depth_id);
+			printOpenGLError();
+		}
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
 	GLuint RenderTarget::CreateTexture(GLint format, GLenum internalFormat, GLenum type){
+		GLuint texture_id;
+
 		// bind this RT's frame buffer object so that the new texture is attached properly
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, this->fbo_id);
+		{
+			// create the texture
+			glGenTextures(1, &texture_id);
+			glBindTexture(GL_TEXTURE_2D, texture_id);
 
-		// create the texture
-		GLuint texture_id;
-		glGenTextures(1, &texture_id);
-		glBindTexture(GL_TEXTURE_2D, texture_id);
+			// Configure texture params for full screen quad
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-		// Configure texture params for full screen quad
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+			// Configure texture as a 2D image with the given bit formats
+			// and the same size as its FBO
+			glTexImage2D(GL_TEXTURE_2D, 0, format,
+						 (GLsizei)this->width,
+						 (GLsizei)this->height,
+						 0, internalFormat, type,
+						 NULL); // NULL means reserve texture memory, but texels are undefined
 
-		// NULL means reserve texture memory, but texels are undefined
-		glTexImage2D(GL_TEXTURE_2D, 0, format,
-					 (GLsizei)this->width,
-					 (GLsizei)this->height,
-					 0, internalFormat, type, NULL);
+			//Attach 2D texture to this FBO
+			glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+this->texture_ids.size(), GL_TEXTURE_2D, texture_id, 0);
+			printOpenGLError();
 
-		//Attach 2D texture to this FBO
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+this->texture_ids.size(), GL_TEXTURE_2D, texture_id, 0);
+			this->texture_ids.push_back(texture_id);
 
-		this->texture_ids.push_back(texture_id);
+			//Does the GPU support current FBO configuration?
+			GLenum status;
+			status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
 
-		//Does the GPU support current FBO configuration?
-		GLenum status;
-		status = glCheckFramebufferStatus(GL_DRAW_FRAMEBUFFER);
+			switch(status) {
+				case GL_FRAMEBUFFER_COMPLETE:
+					std::cout << "Successfully created render target." << std::endl;
+					break;
+				default:
+					assert(0 && "Error: Framebuffer format is not compatible.");
+			}
 
-		switch(status) {
-			case GL_FRAMEBUFFER_COMPLETE:
-				std::cout << "Successfully created render target." << std::endl;
-				break;
-			default:
-				assert(0 && "Error: Framebuffer format is not compatible.");
+			// reset fbo and texture bindings
+			glBindTexture(GL_TEXTURE_2D, 0);
 		}
-
-		// reset fbo and texture bindings
-		glBindTexture(GL_TEXTURE_2D, 0);
 		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
 
 		return texture_id;
@@ -676,8 +690,8 @@ namespace Sigma{
 		return light;
 	}
 
-	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h) {
-		std::unique_ptr<RenderTarget> newRT(new RenderTarget(w, h));
+	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h, const bool hasDepth) {
+		std::unique_ptr<RenderTarget> newRT(new RenderTarget(w, h, hasDepth));
 		this->renderTargets.push_back(std::move(newRT));
 		return (this->renderTargets.size() - 1);
 	}
@@ -839,7 +853,6 @@ namespace Sigma{
 			this->spotQuad.Render();
 		}
 		shader.UnUse();
-
 	}
 
 	void OpenGLSystem::_RenderUnlit(glm::mat4 &viewMatrix, glm::vec3 &viewPosition){
@@ -847,14 +860,11 @@ namespace Sigma{
 		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
 			for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
 				IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
-
 				if(glComp && !glComp->IsLightingEnabled()) {
 					GLSLShader &shader = *glComp->GetShader();
 					shader.Use();
-
 					// Set view position
 					glUniform3f(glGetUniformBlockIndex(glComp->GetShader()->GetProgram(), "viewPosW"), viewPosition.x, viewPosition.y, viewPosition.z);
-
 					glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 				}
 			}
@@ -1064,18 +1074,21 @@ namespace Sigma{
 		this->pointQuad.SetSize(1.0f, 1.0f);
 		this->pointQuad.SetPosition(0.0f, 0.0f);
 		this->pointQuad.LoadShader("shaders/pointlight");
+		this->pointQuad.Inverted(true);
 		this->pointQuad.InitializeBuffers();
 		this->pointQuad.SetCullFace("none");
 
 		this->spotQuad.SetSize(1.0f, 1.0f);
 		this->spotQuad.SetPosition(0.0f, 0.0f);
 		this->spotQuad.LoadShader("shaders/spotlight");
+		this->spotQuad.Inverted(true);
 		this->spotQuad.InitializeBuffers();
 		this->spotQuad.SetCullFace("none");
 
 		this->ambientQuad.SetSize(1.0f, 1.0f);
 		this->ambientQuad.SetPosition(0.0f, 0.0f);
 		this->ambientQuad.LoadShader("shaders/ambient");
+		this->ambientQuad.Inverted(true);
 		this->ambientQuad.InitializeBuffers();
 		this->ambientQuad.SetCullFace("none");
 

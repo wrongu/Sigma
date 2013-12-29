@@ -40,7 +40,7 @@ namespace Sigma{
 	class RenderTarget {
 	public:
 		/** \brief create a RenderTarget; creates a new FBO with a depth buffer and no textures */
-		RenderTarget(const int w, const int h);
+		RenderTarget(const int w, const int h, const bool hasDepth);
 
 		/** \brief destroy the opengl objects referenced by this RenderTarget */
 		virtual ~RenderTarget();
@@ -68,6 +68,7 @@ namespace Sigma{
 		GLuint depth_id;
 		unsigned int width;
 		unsigned int height;
+		bool hasDepth;
 	};
 
     class OpenGLSystem
@@ -132,12 +133,12 @@ namespace Sigma{
 		IComponent* createGLView(const unsigned int entityID, const std::vector<Property> &properties, std::string mode) ;
 
 		// Managing rendering internals
-		/*
+		/**
 		 * \brief creates a new render target of desired size
 		 */
-		int createRenderTarget(const unsigned int w, const unsigned int h);
+		int createRenderTarget(const unsigned int w, const unsigned int h, bool hasDepth);
 
-		/*
+		/**
 		 * \brief returns the fbo_id of primary render target (index 0)
 		 */
 		int getRenderTarget(unsigned int rtID) { return (this->renderTargets.size() > rtID) ? this->renderTargets[rtID]->fbo_id : -1; }
