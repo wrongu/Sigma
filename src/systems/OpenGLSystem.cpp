@@ -15,6 +15,9 @@
 #include "glm/glm.hpp"
 #include "glm/ext.hpp"
 
+#define G_BUFFER 0
+#define PING_PONG 1
+
 namespace Sigma{
 	// RenderTarget methods
 	RenderTarget::RenderTarget(const int w, const int h, const bool depth) : width(w), height(h), hasDepth(depth)
@@ -55,7 +58,7 @@ namespace Sigma{
 
 		// Unbind objects to get them out of the way
 		glBindRenderbuffer(GL_RENDERBUFFER, 0);
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 	}
 
 	void RenderTarget::CreateDepthBuffer(){
@@ -706,17 +709,22 @@ namespace Sigma{
 		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glViewport(0, 0, this->windowWidth, this->windowHeight); // Set the viewport size to fill the window
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+
+		// Clear the GBuffer
+		this->renderTargets[G_BUFFER]->BindWrite();
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+		// Clear the ping pong buffer
+		this->renderTargets[PING_PONG]->BindWrite();
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 	}
 
 	void OpenGLSystem::_RenderGBuffer(glm::mat4 &viewMatrix){
 		// Bind the first buffer, which is the Geometry Buffer
 		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->BindWrite();
+			this->renderTargets[G_BUFFER]->BindWrite();
 		}
-
-		// Clear the GBuffer
-		glClearColor(0.0f,0.0f,0.0f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
 		// Loop through and draw each GL Component component.
 		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
@@ -749,23 +757,21 @@ namespace Sigma{
 
 		// Unbind the first buffer, which is the Geometry Buffer
 		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->UnbindWrite();
+			this->renderTargets[G_BUFFER]->UnbindWrite();
 		}
 
-		// Copy gbuffer's depth buffer to the screen depth buffer
-		// needed for non deferred rendering at the end of this method
+		// Copy gbuffer's depth buffer to the ping-pong depth buffer
+		// (needed for rendering unlit objects later)
 		// NOTE: I'm sure there's a faster way to do this
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->BindRead();
+		this->renderTargets[G_BUFFER]->BindRead();
+		this->renderTargets[PING_PONG]->BindWrite();
+		{
+			// copy depth buffer to the ping pong buffer
+			glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
+				  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
 		}
-
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
-			  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->UnbindRead();
-		}
+		this->renderTargets[G_BUFFER]->UnbindRead();
+		this->renderTargets[PING_PONG]->UnbindWrite();
 	}
 
 	void OpenGLSystem::_RenderAmbient(){
@@ -780,7 +786,7 @@ namespace Sigma{
 
 			glUniform1i(shader("colorBuffer"), 0);
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[0]);
 
 			this->ambientQuad.Render();
 		}
@@ -808,11 +814,11 @@ namespace Sigma{
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[0]);
 			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[1]);
 			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[2]);
 
 			this->pointQuad.Render();
 		}
@@ -844,11 +850,11 @@ namespace Sigma{
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[0]);
 			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[1]);
 			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[2]);
 
 			this->spotQuad.Render();
 		}
@@ -929,18 +935,19 @@ namespace Sigma{
 			{
 				this->_RenderGBuffer(viewMatrix);
 			}
-			// Turn on additive blending for the lighting passes
-			glEnable(GL_BLEND);
-			glBlendFunc(GL_ONE, GL_ONE);
 
 			///////////////////
 			// Lighting Pass //
 			///////////////////
 
 			// Bind the Geometry buffer for reading
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->BindRead();
-			}
+			// and write to the (hidden) ping-pong buffer
+			this->renderTargets[G_BUFFER]->BindRead();
+			this->renderTargets[PING_PONG]->BindWrite();
+
+			// Turn on additive blending for the lighting passes
+			glEnable(GL_BLEND);
+			glBlendFunc(GL_ONE, GL_ONE);
 
 			// Disable depth testing since all further operations are full-screen quads
 			glDepthFunc(GL_NONE);
@@ -974,48 +981,10 @@ namespace Sigma{
 			}
 			glActiveTexture(GL_TEXTURE0);
 
-			/////////////
-			// TESTING //
-			/////////////
-			if(this->blurOn){
-				// there are problems if we try to read from the buffer that we are writing to.
-				// So we hack it by using the 4th texture of the G-Buffer to ping-pong the writing target
-				GLSLShader &blurShader = *this->blur.target.GetShader();
-				blurShader.Use();
-				{
-					glActiveTexture(GL_TEXTURE1);
-					glBindTexture(GL_TEXTURE_1D, this->blur.gauss_texture_id);
-					glActiveTexture(GL_TEXTURE0);
-
-					int w = this->renderTargets[0]->GetWidth();
-					int h = this->renderTargets[0]->GetHeight();
-
-                    // HORIZONTAL BLUR
-                    glDrawBuffers(1, &renderTargets[0]->texture_ids[3]); // write to buffer 3
-                    glUniform1i(blurShader("screenBuffer"), 0); // read from buffer 0
-					glUniform1i(blurShader("orientation"), 0);  // 0 is horizontal
-					glUniform1f(blurShader("texel_size"), 1.0 / ((float) w));
-					this->blur.target.Render();
-
-                    glDrawBuffers(1, &renderTargets[0]->texture_ids[0]); // write to buffer 0
-                    glUniform1i(blurShader("screenBuffer"), 3); // read from buffer 3
-					glUniform1i(blurShader("orientation"), 1);  // 1 is vertical
-					glUniform1f(blurShader("texel_size"), 1.0 / ((float) h));
-					this->blur.target.Render();
-				}
-				blurShader.UnUse();
-			}
-
-			// Deferred rendering is done.
-			// Unbind the Geometry buffer
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->UnbindRead();
-			}
-
-			// Remove blending
+			// Remove blending since it's not useful for blur nor unlit passes
 			glDisable(GL_BLEND);
 
-			// Re-enabled depth test
+			// Re-enabled depth test for rendering unlit meshes
 			glDepthFunc(GL_LESS);
 			glDepthMask(GL_TRUE);
 
@@ -1025,11 +994,58 @@ namespace Sigma{
 
 			// Not needed yet
 
-			///////////////////////
-			// Draw Unlit Objects
-			///////////////////////
+			////////////////////////
+			// Draw Unlit Objects //
+			////////////////////////
 
 			this->_RenderUnlit(viewMatrix, viewPosition);
+
+			////////////////////////////////////
+			// Finished world-space rendering //
+			////////////////////////////////////
+
+			///////////////
+			// BLUR PASS //
+			///////////////
+			int w = this->windowWidth;
+			int h = this->windowHeight;
+			if(this->blurOn){
+				GLSLShader &blurShader = *this->blur.target.GetShader();
+				blurShader.Use();
+				{
+
+					// HORIZONTAL BLUR
+					this->renderTargets[PING_PONG]->BindRead();
+					this->renderTargets[G_BUFFER]->BindWrite();
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_1D, this->blur.gauss_texture_id);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, this->renderTargets[PING_PONG]->texture_ids[0]);
+					glUniform1i(blurShader("orientation"), 0);  // 0 is horizontal
+					glUniform1f(blurShader("texel_size"), 1.0 / ((float) w));
+					this->blur.target.Render();
+
+					// VERTICAL BLUR
+					this->renderTargets[G_BUFFER]->BindRead();
+					this->renderTargets[PING_PONG]->BindWrite();
+					glActiveTexture(GL_TEXTURE1);
+					glBindTexture(GL_TEXTURE_1D, this->blur.gauss_texture_id);
+					glActiveTexture(GL_TEXTURE0);
+					glBindTexture(GL_TEXTURE_2D, this->renderTargets[G_BUFFER]->texture_ids[0]);
+					glUniform1i(blurShader("orientation"), 1);  // 1 is vertical
+					glUniform1f(blurShader("texel_size"), 1.0 / ((float) h));
+					this->blur.target.Render();
+				}
+				blurShader.UnUse();
+			}
+
+			// Copy ping-pong results to the screen
+			{
+				this->renderTargets[PING_PONG]->BindRead();
+				glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+				glBlitFramebuffer(0, 0, w, h, 0, 0, w, h, GL_COLOR_BUFFER_BIT, GL_NEAREST);
+				this->renderTargets[PING_PONG]->UnbindRead();
+			}
 
 			//////////////////
 			// Overlay Pass //
@@ -1103,6 +1119,19 @@ namespace Sigma{
 		glCullFace(GL_BACK);
 		glEnable(GL_DEPTH_TEST);
 
+		//////////////////////////////
+		// Setup deferred rendering //
+		//////////////////////////////
+
+		// Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
+		unsigned int geoBuffer = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
+		this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
+		this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
+		this->createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
+
+		int ping_pong = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
+		this->createRTBuffer(ping_pong, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE);
+
 		// Setup a screen quad for deferred rendering
 		this->pointQuad.SetSize(1.0f, 1.0f);
 		this->pointQuad.SetPosition(0.0f, 0.0f);
@@ -1131,7 +1160,7 @@ namespace Sigma{
 		this->blur.target.Inverted(true);
 		this->blur.target.InitializeBuffers();
 		this->blur.target.SetCullFace("none");
-		this->blur.InitGLBuffers(8, 6.0, 1.0f, 2.0f);
+		this->blur.InitGLBuffers(8, 3.0, 1.0);
 
 		return OpenGLVersion;
 	}

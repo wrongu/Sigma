@@ -17,9 +17,6 @@ void main(void) {
     // easier to work with +/- half-widths
     float p, x, multiplier = 1.0;
     vec4 src;
-
-    out_Color = vec4(0.0);
-
     // horizontal pass (gaussian is a function of x)
     if(orientation == 0){
         for(int i = 0; i < samples; i++){
@@ -33,14 +30,11 @@ void main(void) {
     // horizontal pass (gaussian is a function of y)
     else if(orientation == 1){
         for(int i = 0; i < samples; i++){
-            p = float(i) / float(samples);
+            p = float(i) / float(samples-1);
             multiplier = texture(gaussian, p);
             x = (p - 0.5) * blur_width * texel_size;
             src = texture(screenBuffer, ex_UV + vec2(0.0, x));
             out_Color += src * multiplier;
         }
     }
-
-    out_Color = clamp(out_Color, 0.0, 1.0);
-    out_Color.w = 1.0;
 }

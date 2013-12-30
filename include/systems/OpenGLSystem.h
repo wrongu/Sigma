@@ -50,8 +50,8 @@ namespace Sigma{
             delete[] gaussian_samples;
         }
 
-        void InitGLBuffers(int s, float width, float mag, float s2){
-            this->samples = s;
+        void InitGLBuffers(int samples, float width, float mag){
+            this->samples = samples;
             this->width_in_pixels = width;
             glGenTextures(1, &gauss_texture_id);
             glBindTexture(GL_TEXTURE_1D, gauss_texture_id);
@@ -61,21 +61,26 @@ namespace Sigma{
 
             gaussian_samples = new float[samples];
             float pixels_per_sample = width_in_pixels / static_cast<float>(samples);
-            double x, root_2_pi = 2.506628, e = 2.718282, mu = ((double) samples - 1) / 2.0;
+            double x, root_2_pi = 2.506628, mu = ((double) samples - 1) / 2.0;
+            double s = width * 0.175; // an approximation that makes most of the "bell" within 'width' pixels
+            double s2 = 2.0*s*s;
+            mag *= pixels_per_sample;
             for(int i = 0; i < samples; ++i){
                 // 1D normal distribution
                 x = ((double) i) - mu;
                 x *= pixels_per_sample;
-                gaussian_samples [i] = static_cast<float>(mag/root_2_pi * exp(-(x*x)/(2.0F*s2)));
+                gaussian_samples [i] = static_cast<float>(mag/(s*root_2_pi) * exp(-(x*x) / s2));
             }
 
+            double sum = 0.0;
             std::cout << "GAUSS VECTOR:" << std::endl;
             for(int i = 0; i < samples; ++i){
                 std::cout << gaussian_samples[i] << " ";
+                sum += gaussian_samples[i];
             }
-            std::cout << std::endl;
+            std::cout << std::endl << "SUM: " << sum << std::endl;
 
-            glTexImage1D(GL_TEXTURE_1D, 0, GL_R16F, s, 0, GL_RED, GL_FLOAT, gaussian_samples);
+            glTexImage1D(GL_TEXTURE_1D, 0, GL_R16F, samples, 0, GL_RED, GL_FLOAT, gaussian_samples);
 
             GLSLShader &blurShader = *target.GetShader();
             blurShader.Use();
