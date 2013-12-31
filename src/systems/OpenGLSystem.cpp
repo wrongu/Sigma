@@ -8,7 +8,11 @@
 #include "components/GLMesh.h"
 #include "components/GLScreenQuad.h"
 
-#ifndef __APPLE__
+#ifdef __APPLE__
+// Do not include <OpenGL/glu.h> because that will include gl.h which will mask all sorts of errors involving the use of deprecated GL APIs until runtime.
+// gluErrorString (and all of glu) is deprecated anyway (TODO).
+extern "C" const GLubyte * gluErrorString (GLenum error);
+#else
 #include "GL/glew.h"
 #endif
 
@@ -59,6 +63,19 @@ namespace Sigma{
 	}
 
 	void RenderTarget::CreateDepthBuffer(){
+	    // Make sure we're on the back buffer to test depth bits
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+		// Get backbuffer depth bit width
+		int depthBits;
+#ifdef __APPLE__
+        // The modern way.
+        glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
+#else
+        glGetIntegerv(GL_DEPTH_BITS, &depthBits);
+#endif
+		std::cout << "Depth buffer bits: " << depthBits << std::endl;
+
 		glGenRenderbuffers(1, &this->depth_id);
 		glBindRenderbuffer(GL_RENDERBUFFER, this->depth_id);
 		{
@@ -89,8 +106,8 @@ namespace Sigma{
 			glBindTexture(GL_TEXTURE_2D, texture_id);
 
 			// Configure texture params for full screen quad
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 			glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -703,8 +720,14 @@ namespace Sigma{
 
 	void OpenGLSystem::_RenderClearAll(){
 		// Clear the backbuffer and primary depth/stencil buffer
+		glBindFramebuffer(GL_FRAMEBUFFER, 0);
 		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glViewport(0, 0, this->windowWidth, this->windowHeight); // Set the viewport size to fill the window
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
+
+		// Clear the GBuffer
+		glBindFramebuffer(GL_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
+		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 	}
 
@@ -713,10 +736,6 @@ namespace Sigma{
 		if(this->renderTargets.size() > 0) {
 			this->renderTargets[0]->BindWrite();
 		}
-
-		// Clear the GBuffer
-		glClearColor(0.0f,0.0f,0.0f,1.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
 		// Loop through and draw each GL Component component.
 		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
@@ -956,15 +975,16 @@ namespace Sigma{
 			//	each light (plus some extra culling logic for this bounding mesh)
 			for(auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
 				for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
+
 					// Check if this component is a point light
 					PointLight *light = dynamic_cast<PointLight*>(citr->second.get());
-
 					// If it is a point light, and it intersects the frustum, then render
 					if(light && this->GetView(0)->CameraFrustum.isectSphere(light->position, light->radius) ) {
 						this->_RenderPointLight(light, viewMatrix, viewProjInv, viewPosition);
 						continue;
 					}
 
+                    // Check if this component is a spot light
 					SpotLight *spotLight = dynamic_cast<SpotLight *>(citr->second.get());
 					if(spotLight && spotLight->IsEnabled()) {
 						this->_RenderSpotLight(spotLight, viewMatrix, viewProjInv);
@@ -1122,7 +1142,7 @@ namespace Sigma{
 // Returns 1 if an OpenGL error occurred, 0 otherwise.
 //
 
-int printOglError(char *file, int line)
+int printOglError(const std::string &file, int line)
 {
 
 	GLenum glErr;

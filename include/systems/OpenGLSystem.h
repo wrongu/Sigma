@@ -24,7 +24,7 @@
 
 struct IGLView;
 
-int printOglError(char *file, int line);
+int printOglError(const std::string &file, int line);
 #define printOpenGLError() printOglError(__FILE__, __LINE__)
 
 namespace Sigma{
