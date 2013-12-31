@@ -227,6 +227,7 @@ namespace Sigma{
 
 		// Render targets to draw to
 		std::vector<std::unique_ptr<RenderTarget>> renderTargets;
+		int G_BUFFER; // this will hold the id of the G-Buffer render target
 
 		std::vector<std::unique_ptr<IGLComponent>> screensSpaceComp; // A vector that holds only screen space components. These are rendered separately.
 

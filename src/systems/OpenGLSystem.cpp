@@ -726,14 +726,14 @@ namespace Sigma{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
 		// Clear the GBuffer
-		this->renderTargets[0]->BindWrite();
+		this->renderTargets[this->G_BUFFER]->BindWrite();
 		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 	}
 
 	void OpenGLSystem::_RenderGBuffer(glm::mat4 &viewMatrix){
 		// Bind the first buffer, which is the Geometry Buffer
-        this->renderTargets[0]->BindWrite();
+        this->renderTargets[this->G_BUFFER]->BindWrite();
         {
             // Loop through and draw each GL Component component.
             for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
@@ -765,18 +765,18 @@ namespace Sigma{
             }
         }
 		// Unbind the first buffer, which is the Geometry Buffer
-        this->renderTargets[0]->UnbindWrite();
+        this->renderTargets[this->G_BUFFER]->UnbindWrite();
 
 		// Copy gbuffer's depth buffer to the screen depth buffer
 		// needed for non deferred rendering at the end of this method
 		// NOTE: I'm sure there's a faster way to do this
-        this->renderTargets[0]->BindRead();
+        this->renderTargets[this->G_BUFFER]->BindRead();
         {
             glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
             glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
                 GL_DEPTH_BUFFER_BIT, GL_NEAREST);
         }
-        this->renderTargets[0]->UnbindRead();
+        this->renderTargets[this->G_BUFFER]->UnbindRead();
 	}
 
 	void OpenGLSystem::_RenderAmbient(){
@@ -791,7 +791,7 @@ namespace Sigma{
 
 			glUniform1i(shader("colorBuffer"), 0);
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[0]);
 
 			this->ambientQuad.Render();
 		}
@@ -819,11 +819,11 @@ namespace Sigma{
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[0]);
 			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[1]);
 			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[2]);
 
 			this->pointQuad.Render();
 		}
@@ -855,11 +855,11 @@ namespace Sigma{
 			// texture 1 is normals
 			// texture 2 is z-depth
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[0]);
 			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[1]);
 			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[this->G_BUFFER]->texture_ids[2]);
 
 			this->spotQuad.Render();
 		}
@@ -949,7 +949,7 @@ namespace Sigma{
 			///////////////////
 
 			// Bind the Geometry buffer for reading
-            this->renderTargets[0]->BindRead();
+            this->renderTargets[this->G_BUFFER]->BindRead();
 
 			// Disable depth testing since all further operations are full-screen quads
 			glDepthFunc(GL_NONE);
@@ -985,7 +985,7 @@ namespace Sigma{
 
 			// Deferred rendering is done.
 			// Unbind the Geometry buffer
-            this->renderTargets[0]->UnbindRead();
+            this->renderTargets[this->G_BUFFER]->UnbindRead();
 
 			// Remove blending
 			glDisable(GL_BLEND);
@@ -1105,10 +1105,10 @@ namespace Sigma{
         //////////////////////////////
 
         // Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
-        unsigned int geoBuffer = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
-        this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
-        this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
-        this->createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
+        this->G_BUFFER = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
+        this->createRTBuffer(this->G_BUFFER, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
+        this->createRTBuffer(this->G_BUFFER, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
+        this->createRTBuffer(this->G_BUFFER, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
 
 		return OpenGLVersion;
 	}
