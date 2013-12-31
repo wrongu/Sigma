@@ -726,65 +726,57 @@ namespace Sigma{
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 
 		// Clear the GBuffer
-		glBindFramebuffer(GL_FRAMEBUFFER, this->renderTargets[0]->fbo_id);
+		this->renderTargets[0]->BindWrite();
 		glClearColor(0.0f,0.0f,0.0f,1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT); // Clear required buffers
 	}
 
 	void OpenGLSystem::_RenderGBuffer(glm::mat4 &viewMatrix){
 		// Bind the first buffer, which is the Geometry Buffer
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->BindWrite();
-		}
+        this->renderTargets[0]->BindWrite();
+        {
+            // Loop through and draw each GL Component component.
+            for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
+                for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
+                    IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
+                    // only output geometry to g-buffer if lighting enabled
+                    // (this means that other objects are effectively transparent)
+                    if(glComp && glComp->IsLightingEnabled()) {
+                        GLSLShader &shader = *glComp->GetShader();
 
-		// Loop through and draw each GL Component component.
-		for (auto eitr = this->_Components.begin(); eitr != this->_Components.end(); ++eitr) {
-			for (auto citr = eitr->second.begin(); citr != eitr->second.end(); ++citr) {
-				IGLComponent *glComp = dynamic_cast<IGLComponent *>(citr->second.get());
-				// only output geometry to g-buffer if lighting enabled
-				// (this means that other objects are effectively transparent)
-				if(glComp && glComp->IsLightingEnabled()) {
-					GLSLShader &shader = *glComp->GetShader();
+                        // TODO
+                        // As this is written, uniforms are set once per object per frame.
+                        // They *can* be set only once, ever, since once a uniform is set
+                        // it persists until the program is relinked, and we require all
+                        // lit objects to use the same shader program at the moment. So
+                        // they could all just share the same uniform values (set once)
+                        shader.Use();
+                        {
+                            // For now, turn on ambient intensity and turn off lighting
+                            glUniform1f(shader("ambLightIntensity"), 0.05f);
+                            glUniform1f(shader("diffuseLightIntensity"), 0.0f);
+                            glUniform1f(shader("specularLightIntensity"), 0.0f);
 
-					// TODO
-					// As this is written, uniforms are set once per object per frame.
-					// They *can* be set only once, ever, since once a uniform is set
-					// it persists until the program is relinked, and we require all
-					// lit objects to use the same shader program at the moment. So
-					// they could all just share the same uniform values (set once)
-					shader.Use();
-					{
-						// For now, turn on ambient intensity and turn off lighting
-						glUniform1f(shader("ambLightIntensity"), 0.05f);
-						glUniform1f(shader("diffuseLightIntensity"), 0.0f);
-						glUniform1f(shader("specularLightIntensity"), 0.0f);
-
-						glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
-					}
-					shader.UnUse();
-				}
-			}
-		}
-
+                            glComp->Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
+                        }
+                        shader.UnUse();
+                    }
+                }
+            }
+        }
 		// Unbind the first buffer, which is the Geometry Buffer
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->UnbindWrite();
-		}
+        this->renderTargets[0]->UnbindWrite();
 
 		// Copy gbuffer's depth buffer to the screen depth buffer
 		// needed for non deferred rendering at the end of this method
 		// NOTE: I'm sure there's a faster way to do this
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->BindRead();
-		}
-
-		glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
-		glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
-			  GL_DEPTH_BUFFER_BIT, GL_NEAREST);
-
-		if(this->renderTargets.size() > 0) {
-			this->renderTargets[0]->UnbindRead();
-		}
+        this->renderTargets[0]->BindRead();
+        {
+            glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+            glBlitFramebuffer(0, 0, this->windowWidth, this->windowHeight, 0, 0, this->windowWidth, this->windowHeight,
+                GL_DEPTH_BUFFER_BIT, GL_NEAREST);
+        }
+        this->renderTargets[0]->UnbindRead();
 	}
 
 	void OpenGLSystem::_RenderAmbient(){
@@ -957,9 +949,7 @@ namespace Sigma{
 			///////////////////
 
 			// Bind the Geometry buffer for reading
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->BindRead();
-			}
+            this->renderTargets[0]->BindRead();
 
 			// Disable depth testing since all further operations are full-screen quads
 			glDepthFunc(GL_NONE);
@@ -995,9 +985,7 @@ namespace Sigma{
 
 			// Deferred rendering is done.
 			// Unbind the Geometry buffer
-			if(this->renderTargets.size() > 0) {
-				this->renderTargets[0]->UnbindRead();
-			}
+            this->renderTargets[0]->UnbindRead();
 
 			// Remove blending
 			glDisable(GL_BLEND);
@@ -1111,6 +1099,16 @@ namespace Sigma{
 		this->ambientQuad.Inverted(true);
 		this->ambientQuad.InitializeBuffers();
 		this->ambientQuad.SetCullFace("none");
+
+        //////////////////////////////
+        // Setup deferred rendering //
+        //////////////////////////////
+
+        // Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
+        unsigned int geoBuffer = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
+        this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
+        this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
+        this->createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
 
 		return OpenGLVersion;
 	}

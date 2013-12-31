@@ -49,16 +49,6 @@ int main(int argCount, char **argValues) {
 		std::cout << "OpenGL version: " << version[0] << "." << version[1] << std::endl;
 	}
 
-	//////////////////////////////
-	// Setup deferred rendering //
-	//////////////////////////////
-
-	// Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
-	unsigned int geoBuffer = glsys.createRenderTarget(glfwos.GetWindowWidth(), glfwos.GetWindowHeight(), true);
-	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Diffuse texture
-	glsys.createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE); // Normal texture
-	glsys.createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);			  // Depth texture
-
 	///////////////////
 	// Setup physics //
 	///////////////////
