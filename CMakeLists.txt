@@ -32,6 +32,12 @@ source_group("Header Files\\systems" FILES ${Sigma_SRC_SYSTEM_H})
 file(GLOB Sigma_SRC_SYSTEM_CPP "src/systems/*.cpp")
 source_group("Source Files\\systems" FILES ${Sigma_SRC_SYSTEM_CPP})
 
+# OpenGL subsystem gets special treatment
+file(GLOB Sigma_SRC_GRAPHICS_SYSTEM_H "include/systems/opengl/*.h")
+source_group("Header Files\\systems\\opengl" FILES ${Sigma_SRC_GRAPHICS_SYSTEM_H})
+file(GLOB Sigma_SRC_GRAPHICS_SYSTEM_CPP "src/systems/opengl/*.cpp")
+source_group("Source Files\\systems\\opengl" FILES ${Sigma_SRC_GRAPHICS_SYSTEM_CPP})
+
 # Put all Controller files into a filter
 file(GLOB Sigma_SRC_CONTROLLERS_H "include/controllers/*.h")
 source_group("Header Files\\controllers" FILES ${Sigma_SRC_CONTROLLERS_H})
@@ -58,7 +64,7 @@ if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "GNU")
 		set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
 	endif (NOT (GCC_VERSION VERSION_GREATER 4.7 OR GCC_VERSION VERSION_EQUAL 4.7))
 elseif ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang")
-	# Clang 3.3 and up support c++11.  
+	# Clang 3.3 and up support c++11.
 	execute_process(COMMAND ${CMAKE_CXX_COMPILER} -dumpversion OUTPUT_VARIABLE CLANG_VERSION)
 	if (NOT (CLANG_VERSION VERSION_GREATER 3.3 OR CLANG_VERSION VERSION_EQUAL 3.3))
 		# c++11 std only appears in clang 3.3 or higher. c++0x will work for lesser versions.
@@ -189,7 +195,7 @@ if(APPLE) # Mac OSX
 endif(APPLE)
 
 # add the executable
-add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT_CPP} ${Sigma_SRC_SYSTEM_H} ${Sigma_SRC_SYSTEM_CPP} ${Sigma_SRC_CONTROLLERS_H} ${Sigma_SRC_CONTROLLERS_CPP} ${Sigma_SRC_RESOURCES_H})
+add_executable(Sigma ${Sigma_SRC} ${Sigma_SRC_COMPONENT_H} ${Sigma_SRC_COMPONENT_CPP} ${Sigma_SRC_SYSTEM_H} ${Sigma_SRC_SYSTEM_CPP} ${Sigma_SRC_GRAPHICS_SYSTEM_H} ${Sigma_SRC_GRAPHICS_SYSTEM_CPP} ${Sigma_SRC_CONTROLLERS_H} ${Sigma_SRC_CONTROLLERS_CPP} ${Sigma_SRC_RESOURCES_H})
 
 # Link the executable to all required libraries
 target_link_libraries (Sigma ${OPENGL_LIBRARIES} ${GLFW3_LIBRARY} ${OGGVORBIS_LIBRARIES} ${OPENAL_LIBRARY} ${X11_LIBRARIES} ${OSX_LIBRARIES} ${GLEW_LIBRARY} ${SOIL_LIBRARY} ${BULLET_LINEARMATH_LIBRARIES} ${BULLET_COLLISION_LIBRARIES} ${BULLET_DYNAMICS_LIBRARIES} ${AWESOMIUM_LIBRARY})
