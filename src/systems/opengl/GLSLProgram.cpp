@@ -29,16 +29,23 @@ namespace Sigma{
 			std::cerr << "Cannot link program without a fragment shader" << std::endl;
 		}
 		else{
-			std::string composite_name = vShader->GetPath() + ":" + fShader->GetPath();
-			// if an identical program already exists, use that
-			if(GLSLProgram::loadedPrograms.find(composite_name) != GLSLProgram::loadedPrograms.end()){
-				this->program = GLSLProgram::loadedPrograms[composite_name];
+            // Store names
+            if(this->unique_name == ""){
+                // create a name that is a composition of the shaders' names
+                this->unique_name = vShader->GetName() + ":" + fShader->GetName();
+            }
+			this->composite_path = vShader->GetPath() + ":" + fShader->GetPath();
+			// if a program with the same source has already been created, use that
+			if(GLSLProgram::loadedPrograms.find(this->composite_path) != GLSLProgram::loadedPrograms.end()){
+				this->program = GLSLProgram::loadedPrograms[this->composite_path];
 			}
 			// otherwise we need to create and link the first instance of this program
 			else{
-				GLuint* pid = new GLuint;
-				*pid = glCreateProgram();
-				this->program = std::shared_ptr<GLuint>(pid, ProgramDeleter());
+                // This is basically like program=std::make_shared<GLuint>(glCreateProgram());,
+                // except this allows setting a custom deleter
+			    GLuint *prog = new GLuint;
+                *prog = glCreateProgram();
+                this->program = std::shared_ptr<GLuint>(prog, ProgramDeleter());
 				// compile each shader
 				GLuint vs_id = vShader->LoadAndCompile();
 				GLuint fs_id = fShader->LoadAndCompile();
@@ -54,13 +61,15 @@ namespace Sigma{
 					std::cerr << "Could not link program for " << (vShader->GetName()) << " and " << (fShader->GetName()) << std::endl;
 					glDeleteProgram(*this->program);
 				}
+				// if successful, save it
+				else{
+                    GLSLProgram::loadedPrograms[this->composite_path] = this->program;
+				}
 			}
 
+            // Some uniforms are set once at initialization. request initialization here
 			this->Use();
-			{
-                vShader->InitUniforms();
-                fShader->InitUniforms();
-			}
+			this->InitUniforms();
 			this->UnUse();
 		}
 	}

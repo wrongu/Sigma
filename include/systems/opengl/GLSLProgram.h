@@ -7,6 +7,7 @@
 #include <map>
 #include <memory>
 #include "systems/opengl/IGLSLShader.h"
+#include "glm/glm.hpp"
 
 namespace Sigma{
 
@@ -26,16 +27,35 @@ namespace Sigma{
 	{
 		public:
 			GLSLProgram() : program(new GLuint), vShader(nullptr), fShader(nullptr) {}
+			GLSLProgram(std::string unique_name) : program(new GLuint), vShader(nullptr),
+                fShader(nullptr), unique_name(unique_name) {}
 
 			void Link();
 			void AddShader(const std::string &name);
 			void AddShader(std::shared_ptr<IGLSLShader> shader);
 			bool isLoaded() { return *program != 0; }
 
+            std::string GetPaths() const { return composite_path; }
+            std::string UniqueName() const { return unique_name; }
+
 			void Use() const { glUseProgram(*program); }
 			void UnUse() const { glUseProgram(0); }
 
+			void InitUniforms() {
+			    vShader->InitUniforms();
+			    fShader->InitUniforms();
+            }
+			void FrameUpdateUniforms(IGLView *view, glm::mat4 *projection) {
+			    vShader->FrameUpdateUniforms(view, projection);
+			    fShader->FrameUpdateUniforms(view, projection);
+            }
+			void ComponentUpdateUniforms(IGLComponent *component) {
+			    vShader->ComponentUpdateUniforms(component);
+			    fShader->ComponentUpdateUniforms(component);
+            }
+
 		private:
+		    std::string composite_path, unique_name;
 			// the specific combination of vertex and fragment shader objects is unique to this program object
 			// TODO add geometry shader option
 			std::shared_ptr<IGLSLShader> vShader, fShader;

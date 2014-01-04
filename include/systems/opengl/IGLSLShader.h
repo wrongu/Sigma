@@ -3,6 +3,7 @@
 #define IGLSL_SHADER_H
 
 #include <GL/glew.h>
+#include "glm/glm.hpp"
 #include "systems/opengl/IGLView.h"
 #include "IGLComponent.h"
 
@@ -44,7 +45,7 @@ namespace Sigma{
 			ShaderType GetType() const  { return _type; }
 
 			virtual void InitUniforms() {}
-			virtual void FrameUpdateUniforms(IGLView *view) {}
+			virtual void FrameUpdateUniforms(IGLView *view, glm::mat4 *projection) {}
 			virtual void ComponentUpdateUniforms(IGLComponent *component) {}
 		protected:
             // subclasses need only use the macro REGISTER_SHADER to define CreateAndRegister
