@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 #include "systems/OpenALSystem.h"
 #include "systems/BulletPhysics.h"
 #include "systems/FactorySystem.h"
@@ -80,7 +80,7 @@ int main(int argCount, char **argValues) {
     std::cout << "Initializing OpenAL system." << std::endl;
     alsys.Start();
     alsys.test(); // try sound
-	
+
 	////////////////
 	// Load scene //
 	////////////////
@@ -159,7 +159,7 @@ int main(int argCount, char **argValues) {
 		Sigma::event::handler::GLSixDOFViewController cameraController(glsys.GetView(), mover);
 		glfwos.RegisterKeyboardEventHandler(&cameraController);
 	}
-	
+
 	// Sync bullet physics object with gl camera
 	bphys.initViewMover();
 
@@ -182,7 +182,7 @@ int main(int argCount, char **argValues) {
 
 	glfwos.RegisterKeyboardEventHandler(&guicon3);
 	glfwos.RegisterMouseEventHandler(&guicon3);
-	
+
 	// Call now to clear the delta after startup.
 	glfwos.GetDeltaTime();
 
@@ -207,7 +207,7 @@ int main(int argCount, char **argValues) {
 		double deltaSec = glfwos.GetDeltaTime();
 
 		// Process input
-		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_F)) {			
+		if(glfwos.CheckKeyState(Sigma::event::KS_DOWN, GLFW_KEY_F)) {
 			if(fs==FL_OFF) {
 				fs=FL_TURNING_ON;
 			} else if (fs==FL_ON) {

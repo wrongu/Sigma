@@ -9,7 +9,7 @@
 
 #include "components/SpatialComponent.h"
 #include "GLTransform.h"
-#include "systems/GLSLShader.h"
+#include "systems/opengl/GLSLShader.h"
 #include <unordered_map>
 #include <memory>
 
@@ -65,14 +65,12 @@ namespace Sigma {
 	class IGLComponent : public SpatialComponent {
 	public:
 		SET_COMPONENT_TYPENAME("IGLComponent");
+		typedef std::unordered_map<std::string, std::shared_ptr<GLSLShader>> ShaderMap;
 
-		IGLComponent() 
+		IGLComponent()
 			: lightingEnabled(true), SpatialComponent(0) {} // Default ctor setting entity ID to 0.
 		IGLComponent(const int entityID)
 			: lightingEnabled(true), SpatialComponent(entityID) {} // Ctor that sets the entity ID.
-
-        typedef std::unordered_map<std::string, std::shared_ptr<GLSLShader>> ShaderMap;
-
 		/**
 		 * \brief Initializes the IGLComponent.
 		 *
@@ -158,16 +156,14 @@ namespace Sigma {
 		int NormalBufIndex;
 
 	protected:
+	    std::shared_ptr<GLSLShader> shader;
 		unsigned int buffers[10]; // The various buffer IDs.
 		unsigned int vao; // The VAO that describes this component's data.
 		unsigned int drawMode; // The current draw mode (ex. GL_TRIANGLES, GL_TRIANGLE_STRIP).
 		GLuint cull_face; // The current culling method for this component.
 
-        std::shared_ptr<GLSLShader> shader; // shaders are shared among components
-        // name-->shader map to look up already-loaded shaders (so each can be loaded only once)
-        static ShaderMap loadedShaders;
-
 		bool lightingEnabled;
+		static ShaderMap loadedShaders;
 	}; // class IGLComponent
 } // namespace Sigma
 

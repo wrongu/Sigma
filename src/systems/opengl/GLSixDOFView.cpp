@@ -1,4 +1,4 @@
-#include "systems/GLSixDOFView.h"
+#include "systems/opengl/GLSixDOFView.h"
 
 GLSixDOFView::GLSixDOFView(int entity_id) : IGLView(entity_id) {}
 

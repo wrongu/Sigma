@@ -1,7 +1,7 @@
 #include "systems/WebGUISystem.h"
 #include "Property.h"
 #include "components/WebGUIComponent.h"
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 
 namespace Sigma {
 	std::map<std::string,Sigma::IFactory::FactoryFunction> WebGUISystem::getFactoryFunctions() {
@@ -70,7 +70,7 @@ namespace Sigma {
 		}
 		WebGUIView* webview = new WebGUIView(entityID);
 		WebView* view = web_core->CreateWebView(width * this->windowWidth, height * this->windowHeight);
-		
+
 		if (!url.IsValid()) {
 			std::cerr << "Invalid URL" << std::endl;
 		}

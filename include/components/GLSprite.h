@@ -2,7 +2,7 @@
 #ifndef GLSPRITE_H
 #define GLSPRITE_H
 
-#include "../systems/GLSLShader.h"
+#include "../systems/opengl/GLSLShader.h"
 #include "../IGLComponent.h"
 
 namespace Sigma{
@@ -26,10 +26,10 @@ namespace Sigma{
         /**
          * \brief Renders a GLSprite.
          *
-         * 
+         *
          * \param[in/out] glm::mediump_float * view The current view matrix.
          * \param[in/out] glm::mediump_float * proj The current projection matrix.
-         * \exception  
+         * \exception
          */
         virtual void Render(glm::mediump_float *view, glm::mediump_float *proj);
 
@@ -37,7 +37,7 @@ namespace Sigma{
 		 * \brief Set the GLTexture resource
 		 *
 		 * \param[in/out] Sigma::resource::GLTexture * texture
-		 * \return    void 
+		 * \return    void
 		 */
 		void SetTexture(Sigma::resource::GLTexture* texture);
 

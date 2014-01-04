@@ -15,10 +15,11 @@
 #include "IFactory.h"
 #include "ISystem.h"
 #include "IGLComponent.h"
-#include "systems/IGLView.h"
+#include "systems/opengl/IGLView.h"
 #include <vector>
 #include "resources/GLTexture.h"
 #include "components/GLScreenQuad.h"
+#include "RenderTarget.h"
 
 struct IGLView;
 
@@ -26,23 +27,6 @@ int printOglError(const std::string &file, int line);
 #define printOpenGLError() printOglError(__FILE__, __LINE__)
 
 namespace Sigma{
-
-	struct RenderTarget {
-		std::vector<GLuint> texture_ids;
-		GLuint fbo_id;
-		GLuint depth_id;
-		unsigned int width;
-		unsigned int height;
-		bool hasDepth;
-
-		RenderTarget() : fbo_id(0), depth_id(0) {}
-		virtual ~RenderTarget();
-
-		void BindWrite();
-		void BindRead();
-		void UnbindWrite();
-		void UnbindRead();
-	};
 
     class OpenGLSystem
         : public Sigma::IFactory, public ISystem<IComponent> {

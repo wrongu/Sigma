@@ -5,7 +5,7 @@
 
 #include "glm/glm.hpp"
 #include "IComponent.h"
-#include "systems/GLSLShader.h"
+#include "systems/opengl/GLSLShader.h"
 #include "GLTransform.h"
 
 namespace Sigma {

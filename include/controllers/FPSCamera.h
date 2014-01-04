@@ -4,7 +4,7 @@
 
 #include "systems/KeyboardInputSystem.h"
 #include "systems/MouseInputSystem.h"
-#include "systems/IGLView.h"
+#include "systems/opengl/IGLView.h"
 
 #include "OS.h"
 
@@ -78,7 +78,7 @@ namespace Sigma {
 				 * \return void
 				 */
 				virtual void SetMover(BulletMover* m);
-				
+
 				OS* os; //Very ugly, but there is no good way to do it right now
 			private:
 				BulletMover* mover; // The view mover component that applies the rotations and forces set in the trigger method.

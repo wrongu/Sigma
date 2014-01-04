@@ -12,7 +12,7 @@
 #include <iostream>
 #include <sstream>
 #include "resources/GLTexture.h"
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 
 namespace Sigma{
 
