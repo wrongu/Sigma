@@ -1,4 +1,4 @@
-#include "systems/GLSixDOFView.h"
+#include "systems/opengl/GLSixDOFView.h"
 
 namespace Sigma {
 	GLSixDOFView::GLSixDOFView(const id_t entity_id) : IGLView(entity_id) {}

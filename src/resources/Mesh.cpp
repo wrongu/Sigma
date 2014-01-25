@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 
+#include "systems/opengl/OpenGLSystem.h"
 #include "resources/Texture.h"
 #include "systems/ResourceSsytem.h"
 #include "strutils.h"

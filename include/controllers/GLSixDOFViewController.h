@@ -3,7 +3,7 @@
 #define GLSIXDOFVIEWCONTROLLER_H
 
 #include "systems/KeyboardInputSystem.h"
-#include "systems/IGLView.h"
+#include "systems/opengl/IGLView.h"
 #include "components/PhysicsController.h"
 
 namespace Sigma {

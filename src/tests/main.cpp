@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 #include "systems/OpenALSystem.h"
 #include "systems/BulletPhysics.h"
 #include "systems/FactorySystem.h"

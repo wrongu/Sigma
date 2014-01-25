@@ -1,6 +1,6 @@
-#include "systems/OpenGLSystem.h"
-#include "systems/GLSLShader.h"
-#include "systems/GLSixDOFView.h"
+#include "systems/opengl/OpenGLSystem.h"
+#include "systems/opengl/GLSLShader.h"
+#include "systems/opengl/GLSixDOFView.h"
 #include "controllers/FPSCamera.h"
 #include "resources/GLSprite.h"
 #include "resources/GLIcoSphere.h"
@@ -412,7 +412,7 @@ namespace Sigma{
 		renderable->Transform()->Translate(x,y,z);
 		renderable->Transform()->Rotate(rx,ry,rz);
 		renderable->LoadShader(shaderfile);
-		
+
 		renderable->InitializeBuffers();
 		this->addComponent(entityID,renderable);
 		return renderable;

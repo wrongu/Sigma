@@ -2,7 +2,7 @@
 #ifndef GLSPRITE_H
 #define GLSPRITE_H
 
-#include "systems/GLSLShader.h"
+#include "systems/opengl/GLSLShader.h"
 #include "components/Renderable.h"
 #include "Sigma.h"
 

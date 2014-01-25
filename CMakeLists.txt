@@ -56,6 +56,12 @@ source_group("Header Files\\systems" FILES ${Sigma_SRC_SYSTEM_H})
 file(GLOB Sigma_SRC_SYSTEM_CPP "src/systems/*.cpp")
 source_group("Source Files\\systems" FILES ${Sigma_SRC_SYSTEM_CPP})
 
+# Put all Systems/opengl files into a filter
+file(GLOB Sigma_SRC_OPENGL_H "include/systems/opengl/*.h")
+source_group("Header Files\\systems-opengl" FILES ${Sigma_SRC_OPENGL_H})
+file(GLOB Sigma_SRC_OPENGL_CPP "src/systems/opengl/*.cpp")
+source_group("Source Files\\systems-opengl" FILES ${Sigma_SRC_OPENGL_CPP})
+
 # Put all Controller files into a filter
 file(GLOB Sigma_SRC_CONTROLLERS_H "include/controllers/*.h")
 source_group("Header Files\\controllers" FILES ${Sigma_SRC_CONTROLLERS_H})
@@ -223,6 +229,7 @@ set(Sigma_ALL_SOURCE
 	${Sigma_SRC_CONTROLLERS_CPP}
 	${Sigma_SRC_RESOURCES_CPP}
 	${Sigma_SRC_ENTITY_CPP}
+	${Sigma_SRC_OPENGL_CPP}
 	)
 
 # all source common to the library and test exe
@@ -234,6 +241,7 @@ set(Sigma_ALL_INCLUDES
 	${Sigma_SRC_CONTROLLERS_H}
 	${Sigma_SRC_RESOURCES_H}
 	${Sigma_SRC_ENTITY_H}
+	${Sigma_SRC_OPENGL_H}
 	)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")

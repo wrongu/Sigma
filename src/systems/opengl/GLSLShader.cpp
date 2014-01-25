@@ -2,7 +2,7 @@
 //Author: Movania Muhammad Mobeen
 //Last Modified: February 2, 2011
 
-#include "systems/GLSLShader.h"
+#include "systems/opengl/GLSLShader.h"
 #include <iostream>
 #include <fstream>
 

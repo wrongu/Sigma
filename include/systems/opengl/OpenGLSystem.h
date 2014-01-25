@@ -15,7 +15,7 @@
 #include "IFactory.h"
 #include "ISystem.h"
 #include "components/Renderable.h"
-#include "systems/IGLView.h"
+#include "systems/opengl/IGLView.h"
 #include <vector>
 #include "resources/Texture.h"
 #include "resources/GLScreenQuad.h"

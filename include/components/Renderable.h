@@ -9,7 +9,7 @@
 
 #include "components/SpatialComponent.h"
 #include "GLTransform.h"
-#include "systems/GLSLShader.h"
+#include "systems/opengl/GLSLShader.h"
 #include <unordered_map>
 #include <memory>
 #include "Sigma.h"

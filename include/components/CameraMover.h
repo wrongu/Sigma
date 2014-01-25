@@ -4,7 +4,7 @@
 #define CAMERAMOVER_H
 
 #include "IMoverComponent.h"
-#include "systems/IGLView.h"
+#include "systems/opengl/IGLView.h"
 #include "Sigma.h"
 
 namespace Sigma {
