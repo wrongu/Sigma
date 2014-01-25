@@ -16,6 +16,7 @@
 #include "ISystem.h"
 #include "components/Renderable.h"
 #include "systems/opengl/IGLView.h"
+#include "systems/opengl/RenderTarget.h"
 #include <vector>
 #include "resources/Texture.h"
 #include "resources/GLScreenQuad.h"
@@ -29,23 +30,6 @@ int printOglError(const std::string &file, int line);
 #define printOpenGLError() printOglError(__FILE__, __LINE__)
 
 namespace Sigma{
-
-	struct RenderTarget {
-		std::vector<GLuint> texture_ids;
-		GLuint fbo_id;
-		GLuint depth_id;
-		unsigned int width;
-		unsigned int height;
-		bool hasDepth;
-
-		RenderTarget() : fbo_id(0), depth_id(0) {}
-		virtual ~RenderTarget();
-
-		void BindWrite();
-		void BindRead();
-		void UnbindWrite();
-		void UnbindRead();
-	};
 
 	class OpenGLSystem : public IFactory, public ISystem<IComponent> {
 	public:
