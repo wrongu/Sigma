@@ -1,7 +1,7 @@
 #pragma once
 
-#ifndef IGLCOMPONENT_H
-#define IGLCOMPONENT_H
+#ifndef RENDERABLE_H_INCLUDED
+#define RENDERABLE_H_INCLUDED
 
 #ifndef __APPLE__
 #include "GL/glew.h"
@@ -318,4 +318,4 @@ namespace Sigma {
 	}; // class Renderable
 } // namespace Sigma
 
-#endif // IGLCOMPONENT_H
+#endif // RENDERABLE_H_INCLUDED
