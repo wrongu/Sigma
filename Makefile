@@ -10,8 +10,6 @@ $(EXEC): src CMakeLists.txt
 	mkdir -p build/debug/bin
 	mkdir -p build/bin
 	cd build && cmake .. $(CMAKE_FLAGS) && make
-	cp test.sc build/debug/bin
-	cp test.sc build/bin
 
 clean:
 	@if [ -d build ] ; \
