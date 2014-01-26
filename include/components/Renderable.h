@@ -12,6 +12,7 @@
 #include "systems/opengl/GLSLShader.h"
 #include <unordered_map>
 #include <memory>
+#include <list>
 #include "Sigma.h"
 #include "resources/Mesh.h"
 
@@ -322,6 +323,8 @@ namespace Sigma {
 
 		bool lightingEnabled;
 	}; // class Renderable
+
+    typedef std::list<std::weak_ptr<Renderable>> Batch;
 } // namespace Sigma
 
 #endif // RENDERABLE_H_INCLUDED

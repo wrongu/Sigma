@@ -100,8 +100,8 @@ namespace Sigma{
 		/*
 		 * \brief returns the fbo_id of primary render target (index 0)
 		 */
-		DLL_EXPORT int getRenderTarget(unsigned int rtID) { return (this->renderTargets.size() > rtID) ? this->renderTargets[rtID]->fbo_id : -1; }
-		DLL_EXPORT int getRenderTexture(const unsigned int target=0) { return (this->renderTargets.size() > 0) ? this->renderTargets[0]->texture_ids[target] : -1; }
+		DLL_EXPORT int getRenderTarget(unsigned int rtID) { return (this->renderTargets.size() > rtID) ? this->renderTargets[rtID]->GetId() : -1; }
+		DLL_EXPORT int getRenderTexture(const unsigned int target=0) { return (this->renderTargets.size() > 0) ? this->renderTargets[0]->GetTexture(target) : -1; }
 		DLL_EXPORT void createRTBuffer(unsigned int rtID, GLint format, GLenum internalFormat, GLenum type);
 		DLL_EXPORT void initRenderTarget(unsigned int rtID);
 

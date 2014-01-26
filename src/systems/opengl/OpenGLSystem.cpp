@@ -548,104 +548,14 @@ namespace Sigma{
 	}
 
 	int OpenGLSystem::createRenderTarget(const unsigned int w, const unsigned int h, bool hasDepth) {
-		std::unique_ptr<RenderTarget> newRT(new RenderTarget());
-
-		newRT->width = w;
-		newRT->height = h;
-		newRT->hasDepth = hasDepth;
-
+		std::unique_ptr<RenderTarget> newRT(new RenderTarget(w, h, hasDepth));
 		this->renderTargets.push_back(std::move(newRT));
 		return (this->renderTargets.size() - 1);
 	}
 
-	void OpenGLSystem::initRenderTarget(unsigned int rtID) {
-		RenderTarget *rt = this->renderTargets[rtID].get();
-
-		// Make sure we're on the back buffer
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-		// Get backbuffer depth bit width
-		int depthBits;
-#ifdef __APPLE__
-		// The modern way.
-		glGetFramebufferAttachmentParameteriv(GL_FRAMEBUFFER, GL_DEPTH, GL_FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE, &depthBits);
-#else
-		glGetIntegerv(GL_DEPTH_BITS, &depthBits);
-#endif
-
-		// Create the depth render buffer
-		if(rt->hasDepth) {
-			glGenRenderbuffers(1, &rt->depth_id);
-			glBindRenderbuffer(GL_RENDERBUFFER, rt->depth_id);
-
-			glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, rt->width, rt->height);
-			printOpenGLError();
-
-			glBindRenderbuffer(GL_RENDERBUFFER, 0);
-		}
-
-		// Create the frame buffer object
-		glGenFramebuffers(1, &rt->fbo_id);
-		printOpenGLError();
-
-		glBindFramebuffer(GL_FRAMEBUFFER, rt->fbo_id);
-
-		for(unsigned int i=0; i < rt->texture_ids.size(); ++i) {
-			//Attach 2D texture to this FBO
-			glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+i, GL_TEXTURE_2D, rt->texture_ids[i], 0);
-			printOpenGLError();
-		}
-
-		if(rt->hasDepth) {
-			//Attach depth buffer to FBO
-			glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rt->depth_id);
-			printOpenGLError();
-		}
-
-		//Does the GPU support current FBO configuration?
-		GLenum status;
-		status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-
-		switch(status) {
-		case GL_FRAMEBUFFER_COMPLETE:
-			LOG << "Successfully created render target.";
-			break;
-		default:
-			LOG_ERROR << "Error: Framebuffer format is not compatible.";
-			assert (0 && "Error: Framebuffer format is not compatible.");
-		}
-
-		// Unbind objects
-		glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	}
-
 	void OpenGLSystem::createRTBuffer(unsigned int rtID, GLint format, GLenum internalFormat, GLenum type) {
 		RenderTarget *rt = this->renderTargets[rtID].get();
-
-		// Create a texture for each requested target
-		GLuint texture_id;
-
-		glGenTextures(1, &texture_id);
-		glBindTexture(GL_TEXTURE_2D, texture_id);
-
-		// Texture params for full screen quad
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-		//NULL means reserve texture memory, but texels are undefined
-		glTexImage2D(GL_TEXTURE_2D, 0, format,
-					 (GLsizei)rt->width,
-					 (GLsizei)rt->height,
-					 0, internalFormat, type, NULL);
-
-		//Attach 2D texture to this FBO
-		glFramebufferTexture2D(GL_DRAW_FRAMEBUFFER, GL_COLOR_ATTACHMENT0+rt->texture_ids.size(), GL_TEXTURE_2D, texture_id, 0);
-
-		this->renderTargets[rtID]->texture_ids.push_back(texture_id);
-
-		glBindTexture(GL_TEXTURE_2D, 0);
+		rt->CreateTexture(format, internalFormat, type);
 	}
 
 	bool OpenGLSystem::Update(const double delta) {
@@ -766,7 +676,7 @@ namespace Sigma{
 			glUniform4f(shader("ambientColor"), ambientLight.r, ambientLight.g, ambientLight.b, ambientLight.a);
 			glUniform1i(shader("colorBuffer"), 0);
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+			glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(0));
 
 			this->ambientQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 
@@ -802,11 +712,11 @@ namespace Sigma{
 
 						// Bind GBuffer textures
 						glActiveTexture(GL_TEXTURE0);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(0));
 						glActiveTexture(GL_TEXTURE1);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(1));
 						glActiveTexture(GL_TEXTURE2);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(2));
 
 						this->pointQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 
@@ -839,11 +749,11 @@ namespace Sigma{
 
 						// Bind GBuffer textures
 						glActiveTexture(GL_TEXTURE0);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[0]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(0));
 						glActiveTexture(GL_TEXTURE1);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[1]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(1));
 						glActiveTexture(GL_TEXTURE2);
-						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->texture_ids[2]);
+						glBindTexture(GL_TEXTURE_2D, this->renderTargets[0]->GetTexture(2));
 
 						this->spotQuad.Render(&viewMatrix[0][0], &this->ProjectionMatrix[0][0]);
 
@@ -1046,6 +956,16 @@ namespace Sigma{
 		this->ambientQuad.GetShader()->AddUniform("ambientColor");
 		this->ambientQuad.GetShader()->AddUniform("colorBuffer");
 		this->ambientQuad.GetShader()->UnUse();
+
+		//////////////////////////////
+		// Setup deferred rendering //
+		//////////////////////////////
+
+		// Create render target for the GBuffer, Light Accumulation buffer, and final composite buffer
+		unsigned int geoBuffer = this->createRenderTarget(this->windowWidth, this->windowHeight, true);
+		this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE);	// Diffuse texture
+		this->createRTBuffer(geoBuffer, GL_RGBA8, GL_BGRA, GL_UNSIGNED_BYTE);	// Normal texture
+		this->createRTBuffer(geoBuffer, GL_R32F, GL_RED, GL_FLOAT);				// Depth texture
 
 		return OpenGLVersion;
 	}
