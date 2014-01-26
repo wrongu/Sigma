@@ -1,7 +1,7 @@
 #include "systems/WebGUISystem.h"
 #include "Property.h"
 #include "components/WebGUIComponent.h"
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 
 #ifndef NO_CEF
 #include "cef_url.h"
