@@ -7,7 +7,7 @@
 #include <bullet/btBulletDynamicsCommon.h>
 #include "IComponent.h"
 #include "Property.h"
-#include "systems/OpenGLSystem.h"
+#include "systems/opengl/OpenGLSystem.h"
 #include "components/BulletShapeMesh.h"
 #include "components/Body.h"
 
