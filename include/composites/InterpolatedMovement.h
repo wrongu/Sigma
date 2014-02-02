@@ -92,7 +92,7 @@ namespace Sigma{
 
     private:
         static std::unordered_map<id_t, glm::vec3> rotationtarget_map;
-    }; // class IMoverComponent
+    }; // class InterpolatedMovement
 } // namespace Sigma
 
 #endif // INTERPOLATED_MOVEMENT_H
